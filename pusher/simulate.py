@@ -1,6 +1,4 @@
 import mujoco
-import mujoco.viewer
-
 model = mujoco.MjModel.from_xml_path("pusher.xml")
 data = mujoco.MjData(model)
 

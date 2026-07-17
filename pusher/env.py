@@ -2,9 +2,20 @@
 
 import gymnasium as gym
 
-env = gym.make("Pusher-v5",render_mode="human")
+class PusherEnv(gym.Env):
+    def __init__(self, render_mode=None):
+        self.env = gym.make("Pusher-v5", render_mode=render_mode)
+        self.observation_space = self.env.observation_space
+        self.action_space = self.env.action_space
 
-obs, info = env.reset()
-print("Observation shape:", obs.shape)
-print("Action space:", env.action_space)
-# env.close()
+    def reset(self, seed=None, options=None):
+        return self.env.reset(seed=seed, options=options)
+
+    def step(self, action):
+        return self.env.step(action)
+
+    def render(self):
+        return self.env.render()
+
+    def close(self):
+        self.env.close()

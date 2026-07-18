@@ -2,8 +2,9 @@ import time
 import numpy as np
 import torch
 import torch.optim as optim
+import matplotlib.pyplot as plt  # CHANGED: for plotting reward curve
 
-from ppo import GaussianPolicy, ValueNet, PPOBuffer
+from ppo import GaussianPolicy, ValueNet, PPOBuffer, RunningNorm  # CHANGED: added RunningNorm
 
 # ----------------------------------------------------------------------
 # Import YOUR custom env from env.py.
@@ -29,6 +30,7 @@ def ppo_train(
     target_kl=0.01,
     hidden=(64, 64),
     max_ep_len=100,
+    ent_coef=0.01,  # CHANGED: added, weight for entropy bonus
     save_path="ppo_pusher_policy.pt",
     log_every=1,
     seed=0,
@@ -50,16 +52,18 @@ def ppo_train(
     v_optimizer = optim.Adam(v_net.parameters(), lr=vf_lr)
 
     buf = PPOBuffer(obs_dim, act_dim, steps_per_epoch, gamma, lam)
+    obs_rms = RunningNorm(obs_dim)  # CHANGED: added, normalizes observations
 
     def compute_loss_pi(data, old_logp):
         obs, act, adv = data['obs'], data['act'], data['adv']
         dist, logp = pi_net(obs, act)
         ratio = torch.exp(logp - old_logp)
         clip_adv = torch.clamp(ratio, 1 - clip_ratio, 1 + clip_ratio) * adv
-        loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
+        ent = dist.entropy().sum(axis=-1).mean()
+        # CHANGED: entropy bonus is now actually subtracted into the loss (before it was only logged, never used)
+        loss_pi = -(torch.min(ratio * adv, clip_adv)).mean() - ent_coef * ent
         approx_kl = (old_logp - logp).mean().item()
-        ent = dist.entropy().sum(axis=-1).mean().item()
-        return loss_pi, approx_kl, ent
+        return loss_pi, approx_kl, ent.item()
 
     def compute_loss_v(data):
         obs, ret = data['obs'], data['ret']
@@ -87,9 +91,12 @@ def ppo_train(
         return loss_pi.item(), loss_v.item(), kl, ent
 
     obs, _ = env.reset(seed=seed)
+    obs_rms.update(obs)         # CHANGED
+    obs = obs_rms.normalize(obs)  # CHANGED
     ep_ret, ep_len = 0.0, 0
     best_avg_ret = -np.inf
     start_time = time.time()
+    reward_history = []  # CHANGED: track avg return per epoch, for plotting later
 
     for epoch in range(epochs):
         ep_returns, ep_lens = [], []
@@ -111,7 +118,9 @@ def ppo_train(
             ep_len += 1
 
             buf.store(obs, act_np, rew, val.item(), logp.item())
-            obs = next_obs
+
+            obs_rms.update(next_obs)          # CHANGED (was: obs = next_obs)
+            obs = obs_rms.normalize(next_obs)  # CHANGED
 
             timeout = ep_len == max_ep_len
             terminal = done or timeout
@@ -131,6 +140,8 @@ def ppo_train(
                     ep_lens.append(ep_len)
 
                 obs, _ = env.reset()
+                obs_rms.update(obs)          # CHANGED
+                obs = obs_rms.normalize(obs)  # CHANGED
                 ep_ret, ep_len = 0.0, 0
 
         loss_pi, loss_v, kl, ent = update()
@@ -138,6 +149,7 @@ def ppo_train(
         avg_ret = np.mean(ep_returns) if ep_returns else float('nan')
         avg_len = np.mean(ep_lens) if ep_lens else float('nan')
         elapsed = time.time() - start_time
+        reward_history.append(avg_ret)  # CHANGED
 
         if epoch % log_every == 0:
             print(f"Epoch {epoch:4d} | AvgRet {avg_ret:8.2f} | AvgLen {avg_len:6.1f} "
@@ -150,8 +162,22 @@ def ppo_train(
 
     torch.save(pi_net.state_dict(), save_path)
     torch.save(v_net.state_dict(), save_path.replace("policy", "value"))
+    obs_rms.save(save_path.replace(".pt", "_obs_rms.pt"))  # CHANGED: save normalizer for inference (.pt now)
+    torch.save(reward_history,save_path.replace(".pt","_reward_history.pt"))
     print(f"\nTraining complete. Best avg return: {best_avg_ret:.2f}")
     print(f"Saved: {save_path}")
+
+    # CHANGED: plot reward curve and save as png
+    clean_history = [r for r in reward_history if not np.insan(r)]
+    plt.figure(figsize=(8, 5))
+    plt.plot(clean_history)
+    plt.xlabel("Epoch")
+    plt.ylabel("Average Return")
+    plt.title("PPO Training Reward Curve")
+    plt.grid(True)
+    plot_path = save_path.replace(".pt", "_reward_curve.png")
+    plt.savefig(plot_path)
+    print(f"Saved reward plot: {plot_path}")
 
     env.close()
     return pi_net, v_net

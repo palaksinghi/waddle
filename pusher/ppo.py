@@ -114,7 +114,7 @@ class RunningNorm:
         torch.save({"mean": self.mean, "var": self.var, "count": self.count}, path)
 
     def load(self, path):
-        data = torch.load(path)
+        data = torch.load(path,weights_only=False)
         self.mean = data["mean"]
         self.var = data["var"]
         self.count = data["count"]

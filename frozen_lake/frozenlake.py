@@ -1,110 +1,84 @@
-import random
-import numpy as np
+import os
+import pickle
+
 import gymnasium as gym
+import imageio
 import matplotlib.pyplot as plt
-from IPython import display
-import gymnasium as gym
+import numpy as np
 
-env=gym.make("FrozenLake-v1",map_name="4x4",render_mode="rgb_array",is_slippery=False)
+env = gym.make("FrozenLake-v1", map_name="4x4", render_mode="rgb_array", is_slippery=False)
 
-# env=gym.make(
-#     "FrozenLake-v1",
-#     desc=None,
-#     map_name="4x4",
-#     is_slippery=False,
-#     render_mode="rgb_array",
-#     success_rate=1.0/3.0,
-#     reward_schedule=(1, 0, 0)
-# )
+n_states = env.observation_space.n
+n_actions = env.action_space.n
+print(f"num of states: {n_states}\nnum of actions: {n_actions}")
 
-env.reset()
-img=env.render()
-plt.imshow(img)
-plt.show()
+# ---------------- Training ----------------
+Q = np.zeros([n_states, n_actions])
 
+episodes = 1000
+alpha = 0.5
+gamma = 0.9
 
-n_states=env.observation_space.n
-n_actions=env.action_space.n
+for episode in range(1, episodes + 1):
+    state = env.reset()[0]
+    terminated = False
+    truncated = False
+    G = 0  # sum of rewards this episode
 
+    while not (terminated or truncated):
+        if np.max(Q[state]) > 0:
+            action = np.argmax(Q[state])
+        else:
+            action = env.action_space.sample()
 
-print(f" num of states:{n_states}\n num of actions:{n_actions}")
+        # step() returns 5 values in this exact order
+        new_state, reward, terminated, truncated, info = env.step(action)
 
-state,info=env.reset()
-img=plt.imshow(env.render())
-while True:
-    action = env.action_space.sample()
-    state, reward, terminated, truncated, info = env.step(action)
-    img.set_data(env.render())
-    display.display(plt.gcf())
-    display.clear_output(wait=True)
+        Q[state, action] += alpha * (reward + gamma * np.max(Q[new_state]) - Q[state, action])
+        G += reward
+        state = new_state
 
-    if terminated:
-            break
-    
-Q=np.zeros([n_states,n_actions])
-Q.shape
+    if episode % 100 == 0:
+        print(f"episode {episode} sum of reward: {G}")
 
-episodes=100
-alpha=0.5
-gamma=0.9
-G=0 #G is sum of rewards
+print("\nFinal Q-table:")
+print(Q)
 
+with open("frozenlake.pkl", "wb") as f:
+    pickle.dump(Q, f)
+print(f"\nQ-table saved to {os.path.abspath('frozenlake.pkl')}")
 
-for episode in range(1,episodes+1):
-  state=env.reset()[0] # I use env.reset()[0] because there two variables are coming from env.reset().
-  #The state value is env.reset()[0].You can print to see that what i mean >> print(env.reset())
-  done=False
-  G=0
-  while not done:
-    # Select the action that has the highest value in the current state.
+# ---------------- Evaluation + video ----------------
+frames = []
+state = env.reset()[0]
+terminated = False
+truncated = False
+
+frames.append(env.render())  # initial frame
+
+max_steps = 100  # safety cap in case the policy loops
+steps = 0
+
+while not (terminated or truncated) and steps < max_steps:
     if np.max(Q[state]) > 0:
         action = np.argmax(Q[state])
-
-    # If there's no best action (only zeros), take a random one
     else:
         action = env.action_space.sample()
 
-    new_state,reward,done,info,a=env.step(action)
-    Q[state,action]+=alpha*(reward+gamma*np.max(Q[new_state])-Q[state,action])
-    G+=reward
-    state=new_state
-  if episode%100==0:
-      print(f"episode {episode} sum of  reward :{G}")
+    new_state, reward, terminated, truncated, info = env.step(action)
+    frames.append(env.render())
+    state = new_state
+    steps += 1
 
+env.close()
 
+print(f"\nEvaluation finished in {steps} steps. terminated={terminated}, truncated={truncated}")
+print(f"Frames collected: {len(frames)}")
 
-Q
-state=env.reset()[0]
-done=False
+if frames:
+    
 
-while not done:
-  if np.max(Q[state])>0:
-    action=np.argmax(Q[state])
-
-  else:
-    action=env.action_space.sample()
-
-  new_state,reward,done,info,x=env.step(action)
-  img=env.render()
-  plt.imshow(img)
-  plt.show()
-  state=new_state
-
-state=env.reset()[0]
-done=False
-
-
-while not done:
-  if np.max(Q[state])>0:
-    action=np.argmax(Q[state])
-
-  else:
-    action=env.action_space.sample()
-
-  new_state,reward,done,info,x=env.step(action)
-
-  img=plt.imshow(env.render())
-  display.display(plt.gcf())
-  display.clear_output(wait=True)
-
-  state=new_state
+    # also save a gif, handy since it's a short clip and needs no ffmpeg-specific codec
+    gif_path = os.path.abspath("frozenlake.gif")
+    imageio.mimsave(gif_path, frames, fps=2)
+    print(f"GIF saved to: {gif_path}")

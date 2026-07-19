@@ -18,7 +18,7 @@ def make_env():
 
 
 def ppo_train(
-    epochs=300,
+    epochs=500,
     steps_per_epoch=4000,
     gamma=0.99,
     lam=0.95,
@@ -28,9 +28,9 @@ def ppo_train(
     train_pi_iters=80,
     train_v_iters=80,
     target_kl=0.01,
-    hidden=(64, 64),
+    hidden=(128, 128),
     max_ep_len=100,
-    ent_coef=0.01,  # CHANGED: added, weight for entropy bonus
+    ent_coef=0.0,  
     save_path="ppo_pusher_policy.pt",
     log_every=1,
     seed=0,
@@ -60,7 +60,6 @@ def ppo_train(
         ratio = torch.exp(logp - old_logp)
         clip_adv = torch.clamp(ratio, 1 - clip_ratio, 1 + clip_ratio) * adv
         ent = dist.entropy().sum(axis=-1).mean()
-        # CHANGED: entropy bonus is now actually subtracted into the loss (before it was only logged, never used)
         loss_pi = -(torch.min(ratio * adv, clip_adv)).mean() - ent_coef * ent
         approx_kl = (old_logp - logp).mean().item()
         return loss_pi, approx_kl, ent.item()
@@ -140,8 +139,8 @@ def ppo_train(
                     ep_lens.append(ep_len)
 
                 obs, _ = env.reset()
-                obs_rms.update(obs)          # CHANGED
-                obs = obs_rms.normalize(obs)  # CHANGED
+                obs_rms.update(obs)         
+                obs = obs_rms.normalize(obs)  
                 ep_ret, ep_len = 0.0, 0
 
         loss_pi, loss_v, kl, ent = update()
@@ -185,7 +184,7 @@ def ppo_train(
 
 if __name__ == "__main__":
     ppo_train(
-        epochs=300,
+        epochs=500,
         steps_per_epoch=4000,
         max_ep_len=100,
     )

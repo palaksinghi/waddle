@@ -15,7 +15,7 @@ def mlp(sizes, activation=nn.Tanh, output_activation=nn.Identity):
 
 
 class GaussianPolicy(nn.Module):
-    """πθ(s): outputs a diagonal Gaussian over continuous actions."""
+    """ outputs a diagonal Gaussian over continuous actions."""
 
     def __init__(self, obs_dim, act_dim, hidden=(64, 64)):
         super().__init__()
@@ -43,7 +43,7 @@ def infer(args):
     act_dim = env.action_space.shape[0]
 
     policy = GaussianPolicy(obs_dim, act_dim).to(device)
-    policy.load_state_dict(torch.load(args.checkpoint, map_location=device))
+    policy.load_state_dict(torch.load(args.checkpoint, map_location=device),weights_only=True)
     policy.eval()
 
     all_rewards = []
@@ -66,7 +66,7 @@ def infer(args):
             done = terminated or truncated
             ep_reward += reward
             steps += 1
-
+    
         all_rewards.append(ep_reward)
         print(f"Episode {ep + 1}/{args.episodes}: reward = {ep_reward:.2f}  steps = {steps}")
 

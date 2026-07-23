@@ -279,23 +279,23 @@ def train_value_net(value_net, optimizer, states, returns, epochs=5, batch_size=
             optimizer.step()
             losses.append(loss.item())
     return float(np.mean(losses))
-wandb.init(
-    project="humanoid",
-    name="run1",
-    config={
-        "env":"Humanoid-v5",
-        "algorithm":"trpo",
-        "gamma":"gamma",
-        "lam":"lam",
-        "max_kl":"max_kl"
-    }
-)
+
 # Training loop
 
 def train(args):
     device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
     os.makedirs(args.checkpoint_dir, exist_ok=True)
-
+    wandb.init(
+    project="humanoid",
+    name="run1",
+    config={
+        "env":"Humanoid-v5",
+        "algorithm":"trpo",
+        "gamma":args.gamma,
+        "lam":args.lam,
+        "max_kl":args.max_kl
+    }
+)
     env = gym.make("Humanoid-v5")   #create env,creates actor,critic
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
@@ -342,13 +342,12 @@ def train(args):
         wandb.log({
             "Iteration":iteration,
             "Episode Reward": mean_reward,
-            "Policy Loss": trpo_info["surrogate_loss"].item(),
-            "Value Loss":value_loss.item(),
-            "KL Divergence": trpo_info["kl"].item(),
+            "Policy Loss": trpo_info["surrogate_loss"],
+            "Value Loss":value_loss,
+            "KL Divergence": trpo_info["kl"],
         })
-        wandb.finish()
-        # ---- logging / checkpointing ----
-        mean_reward = float(np.mean(ep_rewards))
+
+        # logging / checkpointing 
         print(
             f"[iter {iteration:4d}] "
             f"mean_ep_reward={mean_reward:8.2f}  "
@@ -370,6 +369,7 @@ def train(args):
             torch.save(value_net.state_dict(), os.path.join(args.checkpoint_dir, "latest_value.pt"))
 
     env.close()
+    wandb.finish()
     print("Training complete.")
 
 # CLI

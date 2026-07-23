@@ -5,7 +5,7 @@ import numpy as np   #calculations
 import torch   # for neural networks
 import torch.nn as nn 
 import gymnasium as gym  #for environment
-
+import wandb
 # Networks
 def mlp(sizes, activation=nn.Tanh, output_activation=nn.Identity):   #helper fn which creates the neural network
     layers = []                                            #creates the layers
@@ -279,7 +279,17 @@ def train_value_net(value_net, optimizer, states, returns, epochs=5, batch_size=
             optimizer.step()
             losses.append(loss.item())
     return float(np.mean(losses))
-
+wandb.init(
+    project="humanoid",
+    name="run1",
+    config={
+        "env":"Humanoid-v5",
+        "algorithm":"trpo",
+        "gamma":"gamma",
+        "lam":"lam",
+        "max_kl":"max_kl"
+    }
+)
 # Training loop
 
 def train(args):
@@ -297,7 +307,7 @@ def train(args):
     best_reward = -np.inf
 
     for iteration in range(1, args.iterations + 1):
-        # ---- collect trajectories ----
+        #  collect trajectories 
         data, ep_rewards = collect_trajectories(
             env, policy, value_net,
             batch_size=args.batch_size,
@@ -319,15 +329,24 @@ def train(args):
             cg_iters=args.cg_iters,
             damping=args.damping,
             backtrack_coeff=args.backtrack_coeff,
-            backtrack_iters=args.backtrack_iters,
+            backtrack_iters=args.backtrack_iters
         )
 
         # ---- value network training ----
         value_loss = train_value_net(
             value_net, value_optimizer, data["states"], data["returns"],
-            epochs=args.value_epochs, batch_size=args.value_batch_size,
+            epochs=args.value_epochs,
+            batch_size=args.value_batch_size
         )
-
+        mean_reward = float(np.mean(ep_rewards))
+        wandb.log({
+            "Iteration":iteration,
+            "Episode Reward": mean_reward,
+            "Policy Loss": trpo_info["surrogate_loss"].item(),
+            "Value Loss":value_loss.item(),
+            "KL Divergence": trpo_info["kl"].item(),
+        })
+        wandb.finish()
         # ---- logging / checkpointing ----
         mean_reward = float(np.mean(ep_rewards))
         print(

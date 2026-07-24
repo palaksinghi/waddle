@@ -1,4 +1,3 @@
-
 import os        #saving the checkpoints
 import argparse     #command line arguments
 import numpy as np   #calculations
@@ -175,7 +174,13 @@ def fisher_vector_product(policy, states, vector, damping=1e-2):
         old_mu, old_std = dist.mean, dist.stddev
 
     kl = gaussian_kl(policy, states, old_mu, old_std)
-    grad_kl = get_flat_grad(kl, policy, create_graph=True)
+    # NOTE: create_graph=True builds a NEW graph for the gradient itself, but that
+    # new graph still depends on the saved tensors from the ORIGINAL forward pass
+    # (the policy(states) call inside gaussian_kl). If retain_graph is left False,
+    # those original buffers get freed right after this call, and the very next
+    # get_flat_grad() (for the Hessian-vector product) fails with
+    # "Trying to backward through the graph a second time". So we must retain it here.
+    grad_kl = get_flat_grad(kl, policy, create_graph=True, retain_graph=True)
 
     grad_vector_product = (grad_kl * vector).sum()
     hvp = get_flat_grad(grad_vector_product, policy, retain_graph=True)
@@ -237,6 +242,7 @@ def trpo_step(policy, states, actions, advantages, old_logp,
 
     success = False
     final_step_frac = 0.0
+    final_kl = 0.0
     for i in range(backtrack_iters):
         frac = backtrack_coeff ** i
         new_params = old_params + frac * full_step
@@ -250,17 +256,20 @@ def trpo_step(policy, states, actions, advantages, old_logp,
         if kl.item() <= max_kl and improve.item() > 0:
             success = True
             final_step_frac = frac
+            final_kl = kl.item()
             break
 
     if not success:
         # No improving step found within trust region: revert to old parameters.
         set_flat_params(policy, old_params)
+        final_kl = 0.0
 
     return {
         "surrogate_loss": loss.item(),
         "expected_improve": expected_improve.item(),
         "line_search_success": success,
         "step_frac": final_step_frac,
+        "kl": final_kl,
     }
 
 
@@ -349,9 +358,9 @@ def train(args):
 
         # logging / checkpointing 
         print(
-            f"[iter {iteration:4d}] "
-            f"mean_ep_reward={mean_reward:8.2f}  "
-            f"n_eps={len(ep_rewards):3d}  "
+            f"[iter{iteration:4d}] "
+            f"mean_reward={mean_reward:8.2f}  "
+            f"n_ep={len(ep_rewards):3d}  "
             f"surrogate={trpo_info['surrogate_loss']:.5f}  "
             f"line_search_ok={trpo_info['line_search_success']}  "
             f"step_frac={trpo_info['step_frac']:.3f}  "
@@ -378,7 +387,7 @@ def build_argparser():
     p = argparse.ArgumentParser(description="TRPO training on Humanoid-v5 (single environment)")
     p.add_argument("--cpu", action="store_true", help="force CPU even if CUDA is available")
     p.add_argument("--checkpoint_dir", type=str, default="checkpoints")
-    p.add_argument("--iterations", type=int, default=500)
+    p.add_argument("--iterations", type=int, default=1000)
     p.add_argument("--batch_size", type=int, default=4000, help="min env steps collected per iteration")
     p.add_argument("--gamma", type=float, default=0.99)
     p.add_argument("--lam", type=float, default=0.97, help="GAE lambda")

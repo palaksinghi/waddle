@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import gymnasium as gym
-
+from gymnasium.wrappers import RecordVideo
 # Policy network (must match the architecture used in trpo_train.py)
 
 def mlp(sizes, activation=nn.Tanh, output_activation=nn.Identity):
@@ -36,14 +36,21 @@ class GaussianPolicy(nn.Module):
 
 def infer(args):
     device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
-    render_mode = "human" if args.render else None
-    env = gym.make("Humanoid-v5", render_mode=render_mode)
-
+    #render_mode = "human" if args.render else None
+    env = gym.make("Humanoid-v5", render_mode="rgb_array")
+    env = RecordVideo(
+        env,
+        video_folder="inference_videos",
+        episode_trigger=lambda episode_id: True,
+        name_prefix="humanoid"
+    )
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
 
     policy = GaussianPolicy(obs_dim, act_dim).to(device)
-    policy.load_state_dict(torch.load(args.checkpoint, map_location=device),weights_only=True)
+    #policy.load_state_dict(torch.load(args.checkpoint, map_location=device),weights_only=True)
+    checkpoint = torch.load(args.checkpoint, map_location=device)
+    policy.load_state_dict(checkpoint)
     policy.eval()
 
     all_rewards = []
@@ -77,7 +84,7 @@ def infer(args):
 def build_argparser():
     p = argparse.ArgumentParser(description="TRPO inference on Humanoid-v5 (single environment)")
     p.add_argument("--checkpoint", type=str, required=True, help="path to saved policy .pt file")
-    p.add_argument("--episodes", type=int, default=5)
+    p.add_argument("--episodes", type=int, default=15)
     p.add_argument("--render", action="store_true", help="render the environment (requires a display)")
     p.add_argument("--deterministic", action="store_true", help="use mean action instead of sampling")
     p.add_argument("--cpu", action="store_true", help="force CPU even if CUDA is available")

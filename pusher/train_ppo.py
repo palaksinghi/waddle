@@ -167,7 +167,7 @@ def ppo_train(
     print(f"Saved: {save_path}")
 
     # CHANGED: plot reward curve and save as png
-    clean_history = [r for r in reward_history if not np.insan(r)]
+    clean_history = [r for r in reward_history if not np.isnan(r)]
     plt.figure(figsize=(8, 5))
     plt.plot(clean_history)
     plt.xlabel("Epoch")

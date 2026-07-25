@@ -1,0 +1,14 @@
+# Virtual environment
+venv/
+
+# Model checkpoints
+checkpoints/
+
+# WandB
+wandb/
+
+# Videos
+inference_videos/
+
+# Python scripts
+inferencing.py

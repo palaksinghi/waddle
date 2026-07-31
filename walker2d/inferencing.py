@@ -30,7 +30,7 @@ class GaussianPolicy(nn.Module):
 def infer(args):
     device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
     #render_mode = "human" if args.render else None
-    env = gym.make("Walker2d-v5", render_mode="rgb_array")
+    env = gym.make("Walker2d-v4", render_mode="rgb_array")
     env = RecordVideo(
         env,
         video_folder="inference_videos_1",
@@ -69,7 +69,7 @@ def infer(args):
     print(f"Std  reward over {args.episodes} episodes: {np.std(all_rewards):.2f}")
     env.close()
 def build_argparser():
-    p = argparse.ArgumentParser(description="TRPO inference on Walker2d-v5 (single environment)")
+    p = argparse.ArgumentParser(description="TRPO inference on Walker2d-v4 (single environment)")
     p.add_argument("--checkpoint", type=str, required=True, help="path to saved policy .pt file")
     p.add_argument("--episodes", type=int, default=10)   #15-->10
     p.add_argument("--render", action="store_true", help="render the environment (requires a display)")

@@ -298,11 +298,11 @@ def train(args):
     project="walker2d",
     name="run1",
     config=vars(args)| {
-        "env":"Walker2d-v5",
+        "env":"Walker2d-v4",
         "algorithm":"trpo",
     }
     )
-    env = gym.make("Walker2d-v5")   #create env,creates actor,critic
+    env = gym.make("Walker2d-v4")   #create env,creates actor,critic
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
 
@@ -382,7 +382,7 @@ def train(args):
 # CLI
 
 def build_argparser():
-    p = argparse.ArgumentParser(description="TRPO training on Walker2d-v5 (single environment)")
+    p = argparse.ArgumentParser(description="TRPO training on Walker2d-v4 (single environment)")
     p.add_argument("--cpu", action="store_true", help="force CPU even if CUDA is available")
     p.add_argument("--checkpoint_dir", type=str, default="checkpoints")
     p.add_argument("--iterations", type=int, default=500)

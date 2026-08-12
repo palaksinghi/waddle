@@ -7,12 +7,12 @@ import mujoco.viewer
 import rewardsm as R
 import mujoco.viewer
 #PATH FOR XML
-XML_PATH = "robot/open_duck_mini_v2/scene.xml" 
-
-LEFT_FOOT_GEOM = "left_foot"
-RIGHT_FOOT_GEOM = "right_foot"
+XML_PATH = "robots/open_duck_mini_v2/scene.xml" 
+#changes-->12aug-->not matched with the xml
+# LEFT_FOOT_GEOM = "left_foot"
+# RIGHT_FOOT_GEOM = "right_foot"
 GROUND_GEOM = "floor"
-TARGET_HEIGHT = 0.45
+TARGET_HEIGHT = 0.17
 GAIT_PERIOD = 0.7
 CONTACT_FORCE_THRESHOLD = 1.0
 BAD_TILT_LIMIT = np.deg2rad(45)
@@ -43,16 +43,20 @@ class OpenDuckBipedalEnv(gym.Env):
         self.ctrl_range = self.model.actuator_ctrlrange.copy()
         self.joint_lower = self.model.jnt_range[:, 0][-self.nu:]
         self.joint_upper = self.model.jnt_range[:, 1][-self.nu:]
-
-        self.left_foot_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, LEFT_FOOT_GEOM)
-        self.right_foot_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, RIGHT_FOOT_GEOM)
+        #NEW CHANGES-->12AUG-->WRONG WRITTEN AND NOT MATCHED TO XML
+        # self.left_foot_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "foot_module_2")
+        # self.right_foot_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "foot_module")
+        self.left_foot_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "foot_assembly_2")
+        self.right_foot_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "foot_assembly")
         self.ground_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, GROUND_GEOM)
 
-        self.prev_action = np.zeros(self.nu, dtype=np.float32)
+
+        self.prev_action = np.zeros(self.nu, dtype=np.float32)###
         self.last_air_time = np.zeros(2, dtype=np.float32)
         self.was_in_contact = np.zeros(2, dtype=bool)
         self.cmd = np.zeros(3, dtype=np.float32)  # vx, vy, wz
         self.episode_t = 0.0
+        self.initial_yaw = 0.0 #12aug
 
     def _projected_gravity(self):
         quat = self.data.qpos[3:7]
@@ -86,17 +90,20 @@ class OpenDuckBipedalEnv(gym.Env):
             phase, lin_vel_b, ang_vel_b, joint_pos, joint_vel, self.cmd
         ]).astype(np.float32)
         return obs
-
-    def _foot_contact(self, geom_id):
+        #CHANGES-->12AUG-->ID ARE WRONG
+    def _foot_contact(self, foot_body_id):
         for i in range(self.data.ncon):
             c = self.data.contact[i]
-            if (c.geom1 == geom_id and c.geom2 == self.ground_id) or \
-               (c.geom2 == geom_id and c.geom1 == self.ground_id):
+            geom1_body = self.model.geom_bodyid[c.geom1]
+            geom2_body = self.model.geom_bodyid[c.geom2]
+            if (geom1_body == foot_body_id and c.geom2 == self.ground_id) or \
+               (geom2_body == foot_body_id and c.geom1 == self.ground_id):
                 force = np.zeros(6)
                 mujoco.mj_contactForce(self.model, self.data, i, force)
                 if np.linalg.norm(force[:3]) > CONTACT_FORCE_THRESHOLD:
                     return True
         return False
+    
     def _undesired_contact_flags(self):
         if not self.undesired_ids:
             return np.zeros(1, dtype=np.float32)
@@ -116,6 +123,7 @@ class OpenDuckBipedalEnv(gym.Env):
         self.data.qpos[:] = init_qpos
         self.data.qvel[:] = 0
         mujoco.mj_forward(self.model, self.data)
+        self.initial_yaw = R.quat_to_yaw(self.data.qpos[3:7])  #12aug
 
         self.prev_action[:] = 0
         self.last_air_time[:] = 0
@@ -139,8 +147,8 @@ class OpenDuckBipedalEnv(gym.Env):
 
         self.episode_t += self.dt
 
-        left_contact = self._foot_contact(self.left_foot_id)
-        right_contact = self._foot_contact(self.right_foot_id)
+        left_contact = self._foot_contact(self.left_foot_body_id)
+        right_contact = self._foot_contact(self.right_foot_body_id)
 
         first_contact = np.array([
             left_contact and not self.was_in_contact[0],
@@ -156,34 +164,35 @@ class OpenDuckBipedalEnv(gym.Env):
         truncated = self.episode_t >= MAX_EPISODE_SECONDS
 
         reward, info = self._compute_reward(
-            left_contact, right_contact, first_contact, air_time_snapshot, gravity, terminated
+            action,left_contact, right_contact, first_contact, air_time_snapshot, gravity, terminated
         )
 
         self.prev_action = action.copy()
         obs = self._get_obs()
         return obs, reward, terminated, truncated, info
 
-    def _compute_reward(self, left_contact, right_contact, first_contact, air_time_snapshot, gravity, terminated):
+    def _compute_reward(self,action, left_contact, right_contact, first_contact, air_time_snapshot, gravity, terminated):
         w = R.REWARD_WEIGHTS
         lin_vel_b = self._root_lin_vel_b()
         ang_vel_b = self._root_ang_vel_b()
         joint_pos = self.data.qpos[-self.nu:]
-        joint_vel = self.data.qvel[-self.nu:]
-        joint_acc = self.data.qacc[-self.nu:]
-        torques = self.data.actuator_force
+        # joint_vel = self.data.qvel[-self.nu:]
+        # joint_acc = self.data.qacc[-self.nu:]
+        # torques = self.data.actuator_force
 
         terms = {
             "track_lin_vel_xy_exp": R.track_lin_vel_xy_exp(lin_vel_b[:2], self.cmd[:2], std=0.5),
             "track_ang_vel_z_exp": R.track_ang_vel_z_exp(ang_vel_b[2], self.cmd[2], std=0.5),
+            "heading": R.heading_penalty(R.quat_to_yaw(self.data.qpos[3:7]), self.initial_yaw, self.cmd[2]),
             "gait_phase_contact": R.gait_phase_contact_reward(self.episode_t, GAIT_PERIOD, left_contact, right_contact),
             "feet_air_time": R.feet_air_time(air_time_snapshot, first_contact, self.cmd[:2]),
             "flat_orientation_l2": R.flat_orientation_l2(gravity),
             "base_height_l2": R.base_height_l2(self.data.qpos[2], TARGET_HEIGHT),
-            "joint_torques_l2": R.joint_torques_l2(torques),
-            "joint_acc_l2": R.joint_acc_l2(joint_acc),
-            "action_rate_l2": R.action_rate_l2(self.prev_action, self.prev_action),  # updated after step below
+            # "joint_torques_l2": R.joint_torques_l2(torques),
+            # "joint_acc_l2": R.joint_acc_l2(joint_acc),
+            "action_rate_l2": R.action_rate_l2( action, self.prev_action),  # updated after step below
             "joint_pos_limits": R.joint_pos_limits(joint_pos, self.joint_lower, self.joint_upper),
-            "undesired_contacts": 0.0,  # fill in with torso/knee contact sensor geoms if desired
+            # "undesired_contacts": 0.0,  # fill in with torso/knee contact sensor geoms if desired
             "is_terminated": float(terminated),
         }
         total = sum(w[k] * v for k, v in terms.items())

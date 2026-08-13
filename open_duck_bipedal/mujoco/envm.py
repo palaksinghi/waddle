@@ -132,7 +132,12 @@ class OpenDuckBipedalEnv(gym.Env):
         self.cmd = self.np_random.uniform(low=[-0.2, -0.1, -0.2], high=[0.2, 0.1, 0.2]).astype(np.float32)
 #self.cmd = self.np_random.uniform(low=[-0.5, -0.3, -0.5], high=[0.5, 0.3, 0.5]).astype(np.float32)
         FORWARD_VEL=0.2
-        self.cmd[0]=FORWARD_VEL
+      
+        self.cmd = np.zeros(3, dtype=np.float32)
+        self.cmd[0] = FORWARD_VEL
+        self.cmd[1] = 0.0
+        self.cmd[2] = 0.0
+
         return self._get_obs(), {}
     
 
@@ -193,6 +198,8 @@ class OpenDuckBipedalEnv(gym.Env):
             "action_rate_l2": R.action_rate_l2( action, self.prev_action),  # updated after step below
             "joint_pos_limits": R.joint_pos_limits(joint_pos, self.joint_lower, self.joint_upper),
             # "undesired_contacts": 0.0,  # fill in with torso/knee contact sensor geoms if desired
+            "ang_vel_xy_l2": R.ang_vel_xy_l2(ang_vel_b),
+            "alive_cost": R.alive_cost(),
             "is_terminated": float(terminated),
         }
         total = sum(w[k] * v for k, v in terms.items())

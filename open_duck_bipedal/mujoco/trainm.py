@@ -2,7 +2,7 @@
 import os
 import time
 from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor,VecNormalize
 from stable_baselines3.common.callbacks import CheckpointCallback, BaseCallback
 
 from envm import OpenDuckBipedalEnv
@@ -97,18 +97,18 @@ def main():
 
     env = SubprocVecEnv([make_env() for _ in range(NUM_ENVS)])
     env = VecMonitor(env)
-
+    env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.0, clip_reward=10.0)
     model = PPO(
         "MlpPolicy",
         env,
         learning_rate=3e-4,
         n_steps=N_STEPS,
         batch_size=BATCH_SIZE,
-        n_epochs=5,
+        n_epochs=8,
         gamma=0.99,
         gae_lambda=0.95,
         clip_range=0.2,
-        ent_coef=0.005,
+        ent_coef=0.02, #13-->0.0005-->0.02
         vf_coef=0.5,
         max_grad_norm=1.0,
         policy_kwargs=dict(net_arch=dict(pi=[512, 256, 128], vf=[512, 256, 128])),
@@ -135,7 +135,7 @@ def main():
         progress_bar=True,
     )
     model.save(os.path.join(CKPT_DIR, "final_model"))
-
+    env.save(os.path.join(CKPT_DIR, "vecnormalize.pkl"))
 
 if __name__ == "__main__":
     main()

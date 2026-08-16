@@ -8,9 +8,9 @@ from stable_baselines3.common.callbacks import CheckpointCallback, BaseCallback
 from envm import OpenDuckBipedalEnv
 
 NUM_ENVS = 8
-TOTAL_TIMESTEPS = 8_000_000
+TOTAL_TIMESTEPS = 1_000_000
 LOG_DIR = "logs/open_duck_bipedal"
-CKPT_DIR = "checkpoints/open_duck_bipedal"
+CKPT_DIR = "checkpoints/final_combined_v1"
 N_STEPS = 1024  # 1024*8 = 8192
 BATCH_SIZE = 1024
 
@@ -104,7 +104,7 @@ def main():
         learning_rate=3e-4,
         n_steps=N_STEPS,
         batch_size=BATCH_SIZE,
-        n_epochs=8,
+        n_epochs=5,
         gamma=0.99,
         gae_lambda=0.95,
         clip_range=0.2,
@@ -131,7 +131,7 @@ def main():
 
     model.learn(
         total_timesteps=TOTAL_TIMESTEPS,
-        callback=[checkpoint_callback, reward_logging_callback],   # add render_callback here too if you want live rendering
+        callback=[checkpoint_callback, reward_logging_callback,render_callback],   # add render_callback here too if you want live rendering
         progress_bar=True,
     )
     model.save(os.path.join(CKPT_DIR, "final_model"))

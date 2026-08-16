@@ -52,6 +52,7 @@ class OpenDuckBipedalEnv(gym.Env):
 
 
         self.prev_action = np.zeros(self.nu, dtype=np.float32)###
+        self.prev_base_pos_xy = np.zeros(2, dtype=np.float32)   # <-- add this
         self.last_air_time = np.zeros(2, dtype=np.float32)
         self.was_in_contact = np.zeros(2, dtype=bool)
         self.cmd = np.zeros(3, dtype=np.float32)  # vx, vy, wz
@@ -121,10 +122,11 @@ class OpenDuckBipedalEnv(gym.Env):
         mujoco.mj_resetData(self.model, self.data)
         init_qpos = self.model.key_qpos[0].copy() if self.model.nkey > 0 else self.data.qpos.copy()
         self.data.qpos[:] = init_qpos
+
         self.data.qvel[:] = 0
         mujoco.mj_forward(self.model, self.data)
         self.initial_yaw = R.quat_to_yaw(self.data.qpos[3:7])  #12aug
-
+        self.prev_base_pos_xy = self.data.qpos[0:2].copy()   # <-- add this
         self.prev_action[:] = 0
         self.last_air_time[:] = 0
         self.was_in_contact[:] = False
@@ -173,6 +175,7 @@ class OpenDuckBipedalEnv(gym.Env):
         )
 
         self.prev_action = action.copy()
+        self.prev_base_pos_xy = self.data.qpos[0:2].copy()   # <-- add this
         obs = self._get_obs()
         return obs, reward, terminated, truncated, info
 
@@ -193,6 +196,7 @@ class OpenDuckBipedalEnv(gym.Env):
             "feet_air_time": R.feet_air_time(air_time_snapshot, first_contact, self.cmd[:2]),
             "flat_orientation_l2": R.flat_orientation_l2(gravity),
             "base_height_l2": R.base_height_l2(self.data.qpos[2], TARGET_HEIGHT),
+            "forward_progress": R.forward_progress(self.data.qpos[0:2], self.prev_base_pos_xy),   # <-- add this
             # "joint_torques_l2": R.joint_torques_l2(torques),
             # "joint_acc_l2": R.joint_acc_l2(joint_acc),
             "action_rate_l2": R.action_rate_l2( action, self.prev_action),  # updated after step below

@@ -89,7 +89,7 @@ class RenderCallback(BaseCallback):
 
             for _ in range(self.render_steps):
                 action, _ = self.model.predict(obs, deterministic=True)
-                obs, reward, terminated, truncated, info = self.eval_env.step(action)
+                obs, rewards, terminated, truncated, info = self.eval_env.step(action)
 
                 self.eval_env.render()
                 time.sleep(0.01)

@@ -209,6 +209,9 @@ class OpenDuckBipedalEnv(gym.Env):
         leg_joint_pos = self.data.qpos[-self.nu:].copy()
         leg_joint_vel = self.data.qvel[-self.nu:].copy()
         actuator_force = self.data.actuator_force.copy()
+        feet_z = min(left_foot_pos[2], right_foot_pos[2])
+        base_height_rel = self.data.qpos[2] - feet_z
+        #print(f"qpos_z={self.data.qpos[2]:.3f}, feet_z={feet_z:.3f}, base_height_rel={base_height_rel:.3f}")
 #######################################################################
         terms = {
             "track_lin_vel_xy_exp": R.track_lin_vel_xy_exp(lin_vel_b[:2], self.cmd[:2], std=0.5),
@@ -225,10 +228,12 @@ class OpenDuckBipedalEnv(gym.Env):
             "feet_air_time_reward": R.feet_air_time_reward(first_contact,air_time_snapshot,TARGET_FEET_AIR_TIME,self.cmd[:2]),   #############
             "symmetry":R.symmetry_penalty(leg_joint_pos,self.left_leg_pose_buffer,self.right_leg_pose_buffer),      ############
             "flat_orientation_l2": R.flat_orientation_l2(gravity),
-            "base_height_l2": R.base_height_l2(self.data.qpos[2], TARGET_HEIGHT),
+            "base_height_l2": R.base_height_l2(base_height_rel, TARGET_HEIGHT),
             "pelvis_vel_tracking":R.pelvis_vel_tracking_penalty(lin_vel_b[:2],self.cmd[:2]),       #####
             "lateral_spread":R.lateral_spread_penalty(left_foot_pos,right_foot_pos),
-
+            #########################################################################
+            
+            ##########################################
         
             "gait_phase_contact": R.gait_phase_contact_reward(self.episode_t, GAIT_PERIOD, left_contact, right_contact),
 

@@ -168,7 +168,7 @@ def alive_cost() -> float:
 
 REWARD_WEIGHTS = {
     # tracking
-    "track_lin_vel_xy_exp": 0.3,
+    "track_lin_vel_xy_exp": 2.0,  #2.0
     "track_ang_vel_z_exp": 0.8,
     "forward_progress": 3.0,
 
@@ -194,10 +194,10 @@ REWARD_WEIGHTS = {
     "joint_pos_limits": -1.0,
     "joint_penalty": -0.002,
     "joint_vel": -0.001,
-    "joint_acc": -1.0e-6,
-    "torque": -0.0001,
-    "action_rate_l2": -0.02,
-    "action_smoothness2_l2": -0.01,
+    "joint_acc": -2.0e-6,
+    "torque": -0.0002,
+    "action_rate_l2": -0.05,
+    "action_smoothness2_l2": -0.025,
 
     # survival / termination
     "alive_cost": 1.0,

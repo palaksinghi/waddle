@@ -169,35 +169,36 @@ def alive_cost() -> float:
 REWARD_WEIGHTS = {
     # tracking
     "track_lin_vel_xy_exp": 2.0,  #2.0
-    "track_ang_vel_z_exp": 0.8,
-    "forward_progress": 3.0,
+    "track_ang_vel_z_exp": 0.5,  #0.8
+    "forward_progress": 5.0,   #3.0
 
     # heading / straight-line
-    "heading_drift": -2.0,
-    "lateral_path_deviation": -5.0,
-    "yaw_penalty":-2.0,
+    "heading_drift": -1.0,    #-2.0
+    "lateral_path_deviation": -1.0,    #-5.0 
+    "yaw_penalty":-1.0,   #-2.0
 
     # gait
-    "gait_phase_tracking": 0.8,
-    "feet_air_time_reward": 1.6,
-    "symmetry": -0.9,
+    "gait_phase_tracking": 1.0,  #0.8
+    "feet_air_time_reward": 2.0, #1.6
+    "symmetry": -0.3,    #-0.9
 
     # base stability
-    "flat_orientation_l2": -1.5,
+    "flat_orientation_l2": -1.0,  #-1.5
     "base_height_l2": -1.0,
-    # "lin_vel_z_l2": -2.0,
-    #"ang_vel_xy_l2": -0.05,
-
-    "pelvis_vel_tracking": -5.0,
-    "lateral_spread": -15.0, 
-    "gait_phase_contact": 0.8, 
+#################################active
+    "lin_vel_z_l2": -2.0,
+    "ang_vel_xy_l2": -0.05,
+##################################
+    "pelvis_vel_tracking": -1.0,   #-5.0
+    "lateral_spread": -3.0, #-15
+    "gait_phase_contact": 1.0,  #0.8
     "joint_pos_limits": -1.0,
-    "joint_penalty": -0.002,
-    "joint_vel": -0.001,
+    "joint_penalty": -0.001,   #-0.002
+    "joint_vel": -0.0005,      #-0.001
     "joint_acc": -2.0e-6,
-    "torque": -0.0002,
-    "action_rate_l2": -0.05,
-    "action_smoothness2_l2": -0.025,
+    "torque": -0.0001, #.0002
+    "action_rate_l2": -0.03,  #-0.05
+    "action_smoothness2_l2": -0.015,   #-0.025
 
     # survival / termination
     "alive_cost": 1.0,

@@ -127,8 +127,12 @@ class OpenDuckBipedalEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         mujoco.mj_resetData(self.model, self.data)
-        init_qpos = self.model.key_qpos[0].copy() if self.model.nkey > 0 else self.data.qpos.copy()
-        self.data.qpos[:] = init_qpos
+        # init_qpos = self.model.key_qpos[0].copy() if self.model.nkey > 0 else self.data.qpos.copy()
+        # self.data.qpos[:] = init_qpos
+        if self.model.nkey > 0:
+            mujoco.mj_resetDataKeyframe(self.model, self.data, 0)
+        else:
+            self.data.qpos[:] = self.data.qpos.copy()
 
         self.data.qvel[:] = 0
         mujoco.mj_forward(self.model, self.data)

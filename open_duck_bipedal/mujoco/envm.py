@@ -10,7 +10,7 @@ import rewardsm as R
 XML_PATH = "robots/open_duck_mini_v2/scene.xml"
 GROUND_GEOM = "floor"
 TARGET_HEIGHT = 0.17
-GAIT_PERIOD = 0.7
+GAIT_PERIOD = 0.5  #0.7#20aug
 CONTACT_FORCE_THRESHOLD = 1.0
 BAD_TILT_LIMIT = np.deg2rad(45)
 MAX_EPISODE_SECONDS = 40.0

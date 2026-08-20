@@ -179,7 +179,7 @@ REWARD_WEIGHTS = {
     # tracking
     "track_lin_vel_xy_exp": 2.0,  #2.0
     "track_ang_vel_z_exp": 0.5,  #0.8
-    "forward_progress": 5.0,   #3.0
+    "forward_progress": 5.0,   #3.0########--------------->need to be changed
 
     # heading / straight-line
     "heading_drift": -1.0,    #-2.0

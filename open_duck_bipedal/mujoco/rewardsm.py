@@ -28,11 +28,14 @@ def lateral_path_deviation_penalty(base_pos_xy: np.ndarray, spawn_xy: np.ndarray
     lateral = -dx * np.sin(spawn_yaw) + dy * np.cos(spawn_yaw)
     return float(lateral ** 2)
 
+# def yaw_penalty(yaw_rate: float, cmd_yaw: float) -> float:
+#     """Squared error between actual and commanded yaw rate. With no turn
+#     commanded this punishes any yawing at all, so the robot walks straight
+#     instead of circling. Turning exactly as commanded costs nothing."""
+#     return float((yaw_rate - cmd_yaw) ** 2)
 def yaw_penalty(yaw_rate: float, cmd_yaw: float) -> float:
-    """Squared error between actual and commanded yaw rate. With no turn
-    commanded this punishes any yawing at all, so the robot walks straight
-    instead of circling. Turning exactly as commanded costs nothing."""
-    return float((yaw_rate - cmd_yaw) ** 2)
+    err = (yaw_rate - cmd_yaw) ** 2
+    return float(np.clip(err, 0.0, 5.0))
 
 def gait_phase_tracking_reward(phase_left: float, phase_right: float,
                                 left_contact: float, right_contact: float) -> float:
@@ -77,17 +80,23 @@ def base_height_l2(height: float, target_height: float) -> float:
     return float((height - target_height) ** 2)
 
 
-def pelvis_vel_tracking_penalty(local_lin_vel_xy: np.ndarray, cmd_xy: np.ndarray) -> float:
-    """
-    p_v = ||v_p_xy - v_c||^2 / max(0.12, 0.5 * ||v_c||^2)
+# def pelvis_vel_tracking_penalty(local_lin_vel_xy: np.ndarray, cmd_xy: np.ndarray) -> float:
+#     """
+#     p_v = ||v_p_xy - v_c||^2 / max(0.12, 0.5 * ||v_c||^2)
 
-    Speed-dependent tolerance: floor of 0.12 at low/zero commanded speed
-    (prevents exploding when standing still), scales with 0.5*||v_c||^2 at
-    higher commanded speed so the penalty isn't harsher than necessary.
-    """
+#     Speed-dependent tolerance: floor of 0.12 at low/zero commanded speed
+#     (prevents exploding when standing still), scales with 0.5*||v_c||^2 at
+#     higher commanded speed so the penalty isn't harsher than necessary.
+#     """
+#     err_sq = np.sum((local_lin_vel_xy - cmd_xy) ** 2)
+#     denom = max(0.12, 0.5 * np.sum(cmd_xy ** 2))
+#     return float(err_sq / denom)
+
+def pelvis_vel_tracking_penalty(local_lin_vel_xy: np.ndarray, cmd_xy: np.ndarray) -> float:
     err_sq = np.sum((local_lin_vel_xy - cmd_xy) ** 2)
     denom = max(0.12, 0.5 * np.sum(cmd_xy ** 2))
-    return float(err_sq / denom)
+    val = err_sq / denom
+    return float(np.clip(val, 0.0, 5.0))
 
 def lateral_spread_penalty(left_foot_pos: np.ndarray, right_foot_pos: np.ndarray, max_spread: float = 0.25) -> float:
     """Penalize the lateral (y-axis) distance between the feet exceeding
@@ -195,7 +204,7 @@ REWARD_WEIGHTS = {
     "joint_pos_limits": -1.0,
     "joint_penalty": -0.001,   #-0.002
     "joint_vel": -0.0005,      #-0.001
-    "joint_acc": -2.0e-6,
+    "joint_acc": -2.0e-7,  #7
     "torque": -0.0001, #.0002
     "action_rate_l2": -0.03,  #-0.05
     "action_smoothness2_l2": -0.015,   #-0.025

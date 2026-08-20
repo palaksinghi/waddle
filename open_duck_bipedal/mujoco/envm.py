@@ -185,7 +185,11 @@ class OpenDuckBipedalEnv(gym.Env):
         reward, info = self._compute_reward(
             action, left_contact, right_contact, first_contact, air_time_snapshot, gravity, terminated
         )
-
+        ####################################################n
+        w = R.REWARD_WEIGHTS
+        weighted = {k: round(w[k] * v, 3) for k, v in info["reward_terms"].items()}
+        print(f"step_reward={reward:.3f}  {weighted}")
+    ######################################################################N
         # FIX: inference script reads info["terminated"] / info["TimeLimit.truncated"]
         # but these were never populated, so fall/timeout status was always wrong.
         info["terminated"] = bool(terminated)

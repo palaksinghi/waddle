@@ -179,7 +179,7 @@ REWARD_WEIGHTS = {
     # tracking
     "track_lin_vel_xy_exp": 2.0,  #2.0
     "track_ang_vel_z_exp": 0.5,  #0.8
-    "forward_progress": 8.0,   #3.0########--------------->need to be changed--->to-->8(20aug)
+    "forward_progress": 8.0,   #3.0########--------------->need to be changed--->to-->8(20aug)-->8.0
 
     # heading / straight-line
     "heading_drift": -1.0,    #-2.0
@@ -192,7 +192,7 @@ REWARD_WEIGHTS = {
     "symmetry": -0.3,    #-0.9
 
     # base stability
-    "flat_orientation_l2": -1.0,  #-1.5
+    "flat_orientation_l2": -2.5,  #-1.0-->-2.5(21aug[2])
     "base_height_l2": -1.0,
 #################################active
     "lin_vel_z_l2": -2.0,

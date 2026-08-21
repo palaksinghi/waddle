@@ -179,11 +179,11 @@ REWARD_WEIGHTS = {
     # tracking
     "track_lin_vel_xy_exp": 2.0,  #2.0
     "track_ang_vel_z_exp": 0.5,  #0.8
-    "forward_progress": 5.0,   #3.0########--------------->need to be changed
+    "forward_progress": 8.0,   #3.0########--------------->need to be changed--->to-->8(20aug)
 
     # heading / straight-line
     "heading_drift": -1.0,    #-2.0
-    "lateral_path_deviation": -1.0,    #-5.0 
+    "lateral_path_deviation": -4.0,    #-5.0 
     "yaw_penalty":-1.0,   #-2.0
 
     # gait

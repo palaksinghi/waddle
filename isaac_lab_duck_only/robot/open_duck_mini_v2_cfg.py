@@ -26,18 +26,18 @@ OPEN_DUCK_MINI_V2_CFG = ArticulationCfg(
         ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(0.0, 0.0, 0.25),
+        pos=(0.0, 0.0, 0.17),
         joint_pos={
             "left_hip_yaw": 0.0,
             "left_hip_roll": 0.0,
-            "left_hip_pitch": 0.0,
-            "left_knee": 0.0,
-            "left_ankle": 0.0,
+            "left_hip_pitch": -0.5,
+            "left_knee": 1.0,
+            "left_ankle": -0.5,
             "right_hip_yaw": 0.0,
             "right_hip_roll": 0.0,
-            "right_hip_pitch": 0.0,
-            "right_knee": 0.0,
-            "right_ankle": 0.0,
+            "right_hip_pitch": 0.5,
+            "right_knee": 1.0,
+            "right_ankle": -0.5,
             "neck_pitch": 0.0,
             "head_pitch": 0.0,
             "head_yaw": 0.0,
@@ -85,5 +85,3 @@ OPEN_DUCK_MINI_V2_CFG = ArticulationCfg(
         ),
     },
 )
-
-open_duck_mini_v2_cfg.py

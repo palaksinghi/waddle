@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 
 import isaaclab.sim as sim_utils
-from isaaclab.assets import AssetBaseCfg
+from isaaclab.assets import AssetBaseCfg, ArticulationCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.managers import (
     CommandTermCfg,
@@ -24,14 +24,14 @@ from .obs_terms import gait_phase_vector
 from robot.open_duck_mini_v2_cfg import OPEN_DUCK_MINI_V2_CFG
 from rewards import reward, termination
 
-NUM_JOINTS = 16
-assert 11 + 2 * NUM_JOINTS == 43, "Observation term sizes no longer sum to 43 - update NUM_JOINTS or terms."
+NUM_JOINTS = 10
+assert 11 + 2 * NUM_JOINTS == 31, "Observation term sizes no longer sum to 31 - update NUM_JOINTS or terms."
 
 LEFT_LEG_JOINTS = ["left_hip_yaw", "left_hip_roll", "left_hip_pitch", "left_knee", "left_ankle"]
 RIGHT_LEG_JOINTS = ["right_hip_yaw", "right_hip_roll", "right_hip_pitch", "right_knee", "right_ankle"]
 ALL_LEG_JOINTS = LEFT_LEG_JOINTS + RIGHT_LEG_JOINTS
 
-BASE_HEIGHT_TARGET = 0.20  # m, adjust to your USD's standing height
+BASE_HEIGHT_TARGET = 0.17 # m, adjust to your USD's standing height#27aug-->(2nd)
 
 
 # -----------------------------------------------------------------------------

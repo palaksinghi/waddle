@@ -19,6 +19,7 @@ parser.add_argument("--resume", action="store_true", default=False, help="Resume
 parser.add_argument("--load_run", type=str, default=None, help="Run folder to resume from (under logs dir).")
 parser.add_argument("--checkpoint", type=str, default=None, help="Checkpoint file to resume from.")
 parser.add_argument("--run_name", type=str, default=None, help="Suffix for this run's log folder.")
+
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 
@@ -29,6 +30,7 @@ simulation_app = app_launcher.app
 # Everything below needs the sim app already running
 # -----------------------------------------------------------------------------
 import os
+import sys
 from datetime import datetime
 
 import gymnasium as gym
@@ -39,13 +41,26 @@ from isaaclab.utils.dict import print_dict
 from isaaclab.utils.io import dump_yaml
 from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlVecEnvWrapper
 
-import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import env  # noqa: F401  (registers Isaac-OpenDuckMiniV2-FlatGait-v0 via gym.register in env/__init__.py)
 from env.duck_gait_env_cfg import DuckGaitEnvCfg
 from rl.rsl_rl_ppo_cfg import DuckGaitPPORunnerCfg
 
 TASK_ID = "Isaac-OpenDuckMiniV2-FlatGait-v0"
+
+# Keys that older rsl_rl checkpoints/cfgs may still carry but current
+# OnPolicyRunner no longer accepts. Stripped defensively wherever present.
+_DEPRECATED_MODEL_KEYS = ["stochastic", "init_noise_std", "noise_std_type", "state_dependent_std"]
+
+
+def _strip_deprecated_keys(agent_dict: dict) -> dict:
+    """Remove deprecated keys from actor/critic (or policy) sub-configs, if present."""
+    for section_name in ("actor", "critic", "policy"):
+        section = agent_dict.get(section_name)
+        if isinstance(section, dict):
+            for key in _DEPRECATED_MODEL_KEYS:
+                section.pop(key, None)
+    return agent_dict
 
 
 def main():
@@ -59,8 +74,7 @@ def main():
     agent_cfg.seed = args_cli.seed
     env_cfg.seed = args_cli.seed
 
-    log_root = os.path.join("logs", "rsl_rl", agent_cfg.experiment_name)
-    log_root = os.path.abspath(log_root)
+    log_root = os.path.abspath(os.path.join("logs", "rsl_rl", agent_cfg.experiment_name))
     run_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     if args_cli.run_name:
         run_name += f"_{args_cli.run_name}"
@@ -73,19 +87,16 @@ def main():
     gym_env = gym.make(TASK_ID, cfg=env_cfg, render_mode=None)
     gym_env = RslRlVecEnvWrapper(gym_env)
 
-    _agent_dict = agent_cfg.to_dict()
-    _deprecated_model_keys = ["stochastic", "init_noise_std", "noise_std_type", "state_dependent_std"]
-    for _k in _deprecated_model_keys:
-        _agent_dict["actor"].pop(_k, None)
-        _agent_dict["critic"].pop(_k, None)
-    runner = OnPolicyRunner(gym_env, _agent_dict, log_dir=log_dir, device=agent_cfg.device)
+    agent_dict = _strip_deprecated_keys(agent_cfg.to_dict())
+    runner = OnPolicyRunner(gym_env, agent_dict, log_dir=log_dir, device=agent_cfg.device)
 
-    resume_path = None
     if args_cli.resume:
         if args_cli.checkpoint:
             resume_path = args_cli.checkpoint
         elif args_cli.load_run:
             run_dir = os.path.join(log_root, args_cli.load_run)
+            if not os.path.isdir(run_dir):
+                raise FileNotFoundError(f"Run directory not found: {run_dir}")
             ckpts = sorted(f for f in os.listdir(run_dir) if f.startswith("model_"))
             if not ckpts:
                 raise FileNotFoundError(f"No checkpoints found in {run_dir}")
@@ -95,12 +106,14 @@ def main():
         print(f"[INFO] Resuming training from checkpoint: {resume_path}")
         runner.load(resume_path)
 
-    print_dict(agent_cfg.to_dict(), nesting=0)
+    print_dict(agent_dict, nesting=0)
     runner.learn(num_learning_iterations=agent_cfg.max_iterations, init_at_random_ep_len=True)
 
     gym_env.close()
 
 
 if __name__ == "__main__":
-    main()
-    simulation_app.close()
+    try:
+        main()
+    finally:
+        simulation_app.close()

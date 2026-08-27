@@ -1,4 +1,4 @@
-"""ManagerBasedRLEnvCfg for open_duck_mini_v2 flat-ground gait."""
+# """ManagerBasedRLEnvCfg for open_duck_mini_v2 flat-ground gait."""
 from __future__ import annotations
 
 import math
@@ -21,7 +21,7 @@ from isaaclab.utils import configclass
 from isaaclab.envs import mdp
 
 from .obs_terms import gait_phase_vector
-from robot.open_duck_mini_v2_cfg import OPEN_DUCK_MINI_V2_CFG
+from robot.open_duck_mini_v2_cfg import OPEN_DUCK_MINI_V2_CFG, fix_base_mass_and_inertia
 from rewards import reward, termination
 
 NUM_JOINTS = 10
@@ -31,7 +31,43 @@ LEFT_LEG_JOINTS = ["left_hip_yaw", "left_hip_roll", "left_hip_pitch", "left_knee
 RIGHT_LEG_JOINTS = ["right_hip_yaw", "right_hip_roll", "right_hip_pitch", "right_knee", "right_ankle"]
 ALL_LEG_JOINTS = LEFT_LEG_JOINTS + RIGHT_LEG_JOINTS
 
-BASE_HEIGHT_TARGET = 0.17 # m, adjust to your USD's standing height#27aug-->(2nd)
+BASE_HEIGHT_TARGET = 0.1934 # m, adjust to your USD's standing height#27aug-->(2nd)
+
+
+# -----------------------------------------------------------------------------
+# Diagnostic: per-foot world z + contact force (to check for missing/misconfigured colliders)
+# -----------------------------------------------------------------------------
+def foot_z_and_contact_diag(env, sensor_cfg: SceneEntityCfg, foot_body_name: str, asset_cfg: SceneEntityCfg):
+    """Logs a foot's world-frame z height alongside its measured contact force.
+
+    Use this to catch the case where a foot passes below the ground plane
+    (world z < 0, accounting for ground-plane offset) while the contact
+    sensor reports ~zero force the whole time -- that combination means the
+    foot's collider is missing or misconfigured (pure visual mesh penetrating
+    the ground with nothing to report contact), NOT that the gait is bad.
+
+    Returns a tensor of shape (num_envs, 2): [foot_world_z, contact_force_norm].
+    Wire this up as an ObsTerm (for logging via TensorBoard/extras) or call it
+    directly from a custom logging callback in train.py.
+    """
+    asset = env.scene[asset_cfg.name]
+    contact_sensor = env.scene.sensors[sensor_cfg.name]
+
+    body_idx = asset.body_names.index(foot_body_name)
+    foot_world_z = asset.data.body_pos_w[:, body_idx, 2]
+
+    # net contact force magnitude for this foot's body in the sensor
+    # (history_length dim -> take most recent frame, index 0)
+    force_hist = contact_sensor.data.net_forces_w_history  # (N, history, num_bodies, 3)
+    sensor_body_names = contact_sensor.body_names
+    sensor_body_idx = sensor_body_names.index(foot_body_name)
+    contact_force = force_hist[:, 0, sensor_body_idx, :]
+    contact_force_norm = torch.linalg.norm(contact_force, dim=-1)
+
+    return torch.stack([foot_world_z, contact_force_norm], dim=-1)
+
+
+import torch  # noqa: E402  (placed here to keep the diagnostic self-contained above)
 
 
 # -----------------------------------------------------------------------------
@@ -84,7 +120,7 @@ class ActionsCfg:
 
 
 # -----------------------------------------------------------------------------
-# Observations (43-dim)
+# Observations (43-dim policy obs group + a separate, non-policy diagnostics group)
 # -----------------------------------------------------------------------------
 @configclass
 class ObservationsCfg:
@@ -101,7 +137,36 @@ class ObservationsCfg:
             self.enable_corruption = False
             self.concatenate_terms = True
 
+    # NOTE: kept out of the policy's obs vector on purpose (43-dim assert above
+    # stays valid). This group is only for logging/debugging foot-ground contact
+    # and is read from env.observation_manager.compute_group("diagnostics")
+    # inside train.py / a custom logging callback -- it is never fed to the
+    # policy or critic networks.
+    @configclass
+    class DiagnosticsCfg(ObsGroup):
+        left_foot_z_contact = ObsTerm(
+            func=foot_z_and_contact_diag,
+            params={
+                "sensor_cfg": SceneEntityCfg("feet_contact"),
+                "foot_body_name": "left_foot",
+                "asset_cfg": SceneEntityCfg("robot"),
+            },
+        )
+        right_foot_z_contact = ObsTerm(
+            func=foot_z_and_contact_diag,
+            params={
+                "sensor_cfg": SceneEntityCfg("feet_contact"),
+                "foot_body_name": "right_foot",
+                "asset_cfg": SceneEntityCfg("robot"),
+            },
+        )
+
+        def __post_init__(self):
+            self.enable_corruption = False
+            self.concatenate_terms = False
+
     policy: PolicyCfg = PolicyCfg()
+    diagnostics: DiagnosticsCfg = DiagnosticsCfg()
 
 
 # -----------------------------------------------------------------------------
@@ -109,6 +174,15 @@ class ObservationsCfg:
 # -----------------------------------------------------------------------------
 @configclass
 class EventCfg:
+    # Fixes the invalid {1,1,1} inertia / negative mass on the base link that
+    # is baked into the source USD, by writing correct values into the PhysX
+    # tensor view once at sim startup (see robot/open_duck_mini_v2_cfg.py).
+    fix_base_mass = EventTerm(
+        func=fix_base_mass_and_inertia,
+        mode="startup",
+        params={"asset_cfg": SceneEntityCfg("robot")},
+    )
+
     reset_base = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",

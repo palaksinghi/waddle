@@ -135,4 +135,3 @@ if __name__ == "__main__":
 #       kwargs={"env_cfg_entry_point": OpenDuckFlatEnvCfg_PLAY},
 #   )
 # ---------------------------------------------------------------------------
-

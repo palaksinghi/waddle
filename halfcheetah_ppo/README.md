@@ -11,17 +11,24 @@ Healthy means torso height is in `[0.25, 1.0]` metres and torso pitch is in
 Install and train:
 
 ```bash
-pip install -r requirements.txt
-python train.py --total-timesteps 1000000
+pip3 install -r requirements.txt
+python3 train.py --total-timesteps 1000000
 ```
 
 To open the live MuJoCo viewer after training, add `--render`:
 
 ```bash
-python train.py --total-timesteps 1000000 --render
+python3 train.py --total-timesteps 1000000 --render
 ```
 
 `train.py` uses a `SyncVectorEnv` with eight environments by default. It includes
 observation normalization/clipping, discounted-return reward normalization and
 reward clipping, value-target normalization, PPO value clipping, and gradient
 norm clipping. Checkpoints are written to `checkpoints/halfcheetah_ppo.pt`.
+
+
+for inference of halfcheetah 
+
+```bash
+ python3 inference.py --checkpoint checkpoints/halfcheetah_ppo.pt --episodes 100 --render
+```

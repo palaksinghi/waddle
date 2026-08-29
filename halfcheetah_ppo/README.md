@@ -11,7 +11,6 @@ Healthy means torso height is in `[0.25, 1.0]` metres and torso pitch is in
 Install and train:
 
 ```bash
-cd /Users/hindrajprakashmali/Documents/Codex/2026-07-27/no/outputs/halfcheetah_ppo
 pip install -r requirements.txt
 python train.py --total-timesteps 1000000
 ```

@@ -1,0 +1,4 @@
+gymnasium[mujoco]>=1.1
+mujoco>=3.0
+torch>=2.0
+numpy>=1.24

@@ -7,7 +7,7 @@ from torch.distributions import Normal
 """
 ENVIRONMENT
 """
-def make_env(env_id="Walker2d-v5", seed=41):
+def make_env(env_id="Walker2d-v0", seed=41):
     env = gym.make(env_id, render_mode="human")
     obs, info = env.reset(seed=seed)
     env.action_space.seed(seed)

@@ -18,7 +18,7 @@ DEFAULT_CAMERA_CONFIG = {
 class CustomWalker_2dEnv(MujocoEnv, utils.EzPickle):
     metadata = {
         "render_modes": ["human", "rgb_array", "depth_array"],
-        "render_fps": 40,
+        "render_fps": 100,
     }
 
     def __init__(
@@ -130,7 +130,7 @@ gym.register(
 
 def make_env(env_id="CustomWalker2d-v0", seed=41, render_mode=None):
     def thunk():
-        env = gym.make(env_id, render_mode=render_mode)
+        env = gym.make(env_id, render_mode="human")
         env.action_space.seed(seed)
         env.observation_space.seed(seed)
         return env

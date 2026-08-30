@@ -1,0 +1,42 @@
+##################################################################################
+# Configurations
+##################################################################################
+project_name: 'FlashRL'
+entity_name: 'draftrec'
+group_name: 'open_duck'
+exp_name: 'open_duck_mini_v2'
+seed: 0
+logger_type: 'tensorboard'  # ['wandb', 'tensorboard']
+save_path: 'models/${group_name}/${exp_name}/${env.env_name}/seed${seed}-TIMESTAMP'
+agent_load_path: null
+buffer_load_path: null
+
+##################################################################################
+# Environment
+##################################################################################
+num_env_steps: 20_000_000
+num_train_envs: 1
+num_eval_envs: 1
+num_record_envs: 1
+num_eval_episodes: 5
+num_record_episodes: 1
+
+##################################################################################
+# Training
+##################################################################################
+gamma: 0.99
+n_step: 1
+num_interaction_steps: ${eval:'${num_env_steps} / (${num_train_envs})'}
+updates_per_interaction_step: 1
+num_update_steps: ${eval:'${num_interaction_steps} * (${updates_per_interaction_step})'}
+evaluation_per_interaction_step: ${eval:'int(${num_interaction_steps} / 50)'}
+metrics_per_interaction_step: ${eval:'int(${num_interaction_steps} / 50)'}
+recording_per_interaction_step: ${eval:'int(${num_interaction_steps} / 10)'}
+logging_per_interaction_step: ${eval:'int(${num_interaction_steps} / 500)'}
+save_checkpoint_per_interaction_step: ${eval:'int(${num_interaction_steps} / 20)'}
+save_buffer_per_interaction_step: null
+
+defaults:
+  - _self_
+  - agent: flashSAC
+  - env: open_duck

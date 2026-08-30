@@ -83,3 +83,5 @@ htmlcov/
 # Ignore user-specific files
 *.user
 *.local
+gif_collection/
+*.mp4

@@ -1,5 +1,7 @@
 # Custom HalfCheetah PPO
 
+<img src="../gif_collection/halpfcheetah_ppo.gif" alt="FlashSAC Open Duck Demo" width="100%"/>
+
 The environment rewards forward velocity and staying healthy, while penalizing
 large motor commands:
 

@@ -12,9 +12,11 @@ Robots don’t intuitively walk; they’re taught using a policy. Waddle teaches
 Open Duck Mini v2 features 17 Degrees of Freedom (DoF). To achieve stable, autonomous walking, we applied Proximal Policy Optimization (PPO) and Flash Soft Actor-Critic (FlashSAC). The walking gait is implemented using detailed RL reward engineering—combining, weighting, and fine-tuning distinct reward components to ensure proper balance and gait stability.
 
 
-| <video src="FlashSAC/flash_sac.mp4" width="100%" autoplay loop muted controls></video>|
+<p align="center">
+  <img src="gif_collection/flash_sac.gif" alt="FlashSAC Open Duck Demo" width="100%"/>
+</p>
 
-## ALGORITHM
+<!-- ## ALGORITHM
 
 ##  1. Tabular Q-Learning (FrozenLake & Taxi)
 * **Q-Table Lookup**: Because the state and action spaces are discrete, Q-values $Q(s, a)$ are stored in a lookup table .
@@ -54,17 +56,20 @@ $$J_\pi(\phi) = \mathbb{E}_{s_t \sim \mathcal{D}, \, a_t \sim \pi_\phi} \left[ \
 
 $$J(\alpha) = \mathbb{E}_{a_t \sim \pi_\phi} \left[ -\alpha \left( \log \pi_\phi(a_t \mid s_t) + \mathcal{H}_0 \right) \right]$$
 
-There are four neural networks in this algorithm: two for the actor and two for the critic. When the actor updates based on the critic, any estimation error in the Q-value is inherited by the actor, causing errors to accumulate further over time. To prevent this, we take the minimum of the two action values. Furthermore, instead of solely maximizing the Q-value—which can lead to the over-exploitation of rewards—we encourage exploration by adding an entropy term.
+There are four neural networks in this algorithm: two for the actor and two for the critic. When the actor updates based on the critic, any estimation error in the Q-value is inherited by the actor, causing errors to accumulate further over time. To prevent this, we take the minimum of the two action values. Furthermore, instead of solely maximizing the Q-value—which can lead to the over-exploitation of rewards—we encourage exploration by adding an entropy term. -->
 
 ---
 ---
 
 | Frozen Lake | Lunar Lander |
 | :---: | :---: |
-| ![frozen lake](frozenlake/frozenlake.gif) | <video src="lunar%20landing/lunar_lander_trained.mp4" width="100%" autoplay loop muted controls></video> |
+| ![frozen lake](gif_collection/frozenlake.gif) |![lunar lander](gif_collection/lunar_lander_trained.gif) |
 | taxi |
-<video src="taxi/taxi.mp4" width="100%" autoplay loop muted controls></video>
+### Taxi-v3
 
+<p align="center">
+  <img src="gif_collection/taxi.gif" alt="Taxi Environment" width="85%"/>
+</p>
 
 
 ## 📁 Repository Structure

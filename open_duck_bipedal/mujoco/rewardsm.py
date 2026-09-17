@@ -1,20 +1,115 @@
+
 import numpy as np
-##
-
-def phase_vector(t: float, period: float) -> np.ndarray:
-    phase = np.fmod(t, period) / period
-    ang = 2 * np.pi * phase
-    return np.array([np.sin(ang), np.cos(ang)], dtype=np.float32)
-
 
 def track_lin_vel_xy_exp(lin_vel_xy: np.ndarray, cmd_xy: np.ndarray, std: float) -> float:
     err = np.sum((cmd_xy - lin_vel_xy) ** 2)
     return float(np.exp(-err / std**2))
 
-
 def track_ang_vel_z_exp(ang_vel_z: float, cmd_z: float, std: float) -> float:
     err = (cmd_z - ang_vel_z) ** 2
     return float(np.exp(-err / std**2))
+
+def forward_progress(pos_xy: np.ndarray, prev_pos_xy: np.ndarray) -> float:
+    """Reward net forward displacement (world +x) this step."""
+    return float(pos_xy[0] - prev_pos_xy[0])
+
+def heading_drift_penalty(base_yaw: float, spawn_yaw: float) -> float:
+    """Yaw deviation from the heading at spawn. Anchored to a fixed
+    reference (spawn_yaw), not recomputed each step."""
+    err = _wrap_to_pi(base_yaw - spawn_yaw)
+    return float(err ** 2)
+
+def lateral_path_deviation_penalty(base_pos_xy: np.ndarray, spawn_xy: np.ndarray, spawn_yaw: float) -> float:
+    """Perpendicular distance from the straight line defined by
+    (spawn_xy, spawn_yaw). Prevents circular/arcing paths -- position
+    anchored, not velocity anchored."""
+    dx = base_pos_xy[0] - spawn_xy[0]
+    dy = base_pos_xy[1] - spawn_xy[1]
+    lateral = -dx * np.sin(spawn_yaw) + dy * np.cos(spawn_yaw)
+    return float(lateral ** 2)
+
+# def yaw_penalty(yaw_rate: float, cmd_yaw: float) -> float:
+#     """Squared error between actual and commanded yaw rate. With no turn
+#     commanded this punishes any yawing at all, so the robot walks straight
+#     instead of circling. Turning exactly as commanded costs nothing."""
+#     return float((yaw_rate - cmd_yaw) ** 2)
+<<<<<<< Updated upstream
+# def yaw_penalty(yaw_rate: float, cmd_yaw: float) -> float:
+#     err = (yaw_rate - cmd_yaw) ** 2
+#     return float(np.clip(err, 0.0, 5.0))
+
+def yaw_penalty(yaw_rate: float, cmd_yaw: float) -> float:
+    err = (yaw_rate - cmd_yaw) ** 2
+    return float(5.0 * np.tanh(err / 5.0))
+>>>>>>> Stashed changes
+
+def gait_phase_tracking_reward(phase_left: float, phase_right: float,
+                                left_contact: float, right_contact: float) -> float:
+    """Alternate formulation: desired stance derived from sin(phase) sign
+    per-leg (legs pi apart), matched against actual contact state."""
+    desired_left_stance = 1.0 if np.sin(phase_left) > 0 else 0.0
+    desired_right_stance = 1.0 if np.sin(phase_right) > 0 else 0.0
+    left_match = 1.0 - abs(desired_left_stance - left_contact)
+    right_match = 1.0 - abs(desired_right_stance - right_contact)
+    return float(0.5 * (left_match + right_match))
+
+def feet_air_time_reward(foot_touchdown_event, foot_air_time, target_feet_air_time: float,
+                          cmd_xy: np.ndarray) -> float:
+    """Pays out on touchdown events, capped at target air time; zero if no
+    forward/lateral command is active."""
+    if np.linalg.norm(cmd_xy) < 0.05:
+        return 0.0
+    r = 0.0
+    for i in range(len(foot_touchdown_event)):
+        if foot_touchdown_event[i]:
+            r += min(foot_air_time[i], target_feet_air_time)
+    return float(r)
+    
+def symmetry_penalty(leg_joint_pos: np.ndarray, left_leg_pose_buffer, right_leg_pose_buffer) -> float:
+    """Penalize left/right leg joints not being mirrored appropriately
+    given the half-cycle phase offset. Compares current left-leg pose to
+    the right-leg pose recorded half a gait cycle ago (and vice versa)."""
+    if left_leg_pose_buffer is None or right_leg_pose_buffer is None:
+        return 0.0
+    mirror = np.array([1.0, -1.0, 1.0, 1.0, 1.0])  # yaw, roll, pitch, knee, ankle
+    left_now = leg_joint_pos[0:5]
+    right_now = leg_joint_pos[5:10]
+    target_right = left_leg_pose_buffer * mirror
+    target_left = right_leg_pose_buffer * mirror
+    err = np.sum((right_now - target_right) ** 2) + np.sum((left_now - target_left) ** 2)
+    return float(err)
+
+def flat_orientation_l2(projected_gravity: np.ndarray) -> float:
+    return float(np.sum(projected_gravity[:2] ** 2))
+
+def base_height_l2(height: float, target_height: float) -> float:
+    return float((height - target_height) ** 2)
+
+
+# def pelvis_vel_tracking_penalty(local_lin_vel_xy: np.ndarray, cmd_xy: np.ndarray) -> float:
+#     """
+#     p_v = ||v_p_xy - v_c||^2 / max(0.12, 0.5 * ||v_c||^2)
+
+#     Speed-dependent tolerance: floor of 0.12 at low/zero commanded speed
+#     (prevents exploding when standing still), scales with 0.5*||v_c||^2 at
+#     higher commanded speed so the penalty isn't harsher than necessary.
+#     """
+#     err_sq = np.sum((local_lin_vel_xy - cmd_xy) ** 2)
+#     denom = max(0.12, 0.5 * np.sum(cmd_xy ** 2))
+#     return float(err_sq / denom)
+
+def pelvis_vel_tracking_penalty(local_lin_vel_xy: np.ndarray, cmd_xy: np.ndarray) -> float:
+    err_sq = np.sum((local_lin_vel_xy - cmd_xy) ** 2)
+    denom = max(0.12, 0.5 * np.sum(cmd_xy ** 2))
+    val = err_sq / denom
+    return float(np.clip(val, 0.0, 5.0))
+
+def lateral_spread_penalty(left_foot_pos: np.ndarray, right_foot_pos: np.ndarray, max_spread: float = 0.25) -> float:
+    """Penalize the lateral (y-axis) distance between the feet exceeding
+    max_spread."""
+    lateral_distance = abs(left_foot_pos[1] - right_foot_pos[1])
+    over = max(0.0, lateral_distance - max_spread)
+    return float(over)
 
 def gait_phase_contact_reward(t, period, left_contact: bool, right_contact: bool) -> float:
     ph = phase_vector(t, period)
@@ -24,162 +119,157 @@ def gait_phase_contact_reward(t, period, left_contact: bool, right_contact: bool
     right_match = float(right_contact == right_should_contact)
     return 0.5 * (left_match + right_match)
 
-def feet_air_time(last_air_time: np.ndarray, first_contact: np.ndarray, cmd_xy: np.ndarray, threshold=0.1) -> float:
-    reward = np.sum((last_air_time - threshold) * first_contact.astype(np.float32))
-    if np.linalg.norm(cmd_xy) <= 0.1:
-        reward = 0.0
-    return float(reward) ###if-else
-
-def flat_orientation_l2(projected_gravity: np.ndarray) -> float:
-    return float(np.sum(projected_gravity[:2] ** 2))
-
-def base_height_l2(height: float, target_height: float) -> float:
-    return float((height - target_height) ** 2)
-
-def joint_torques_l2(torques: np.ndarray) -> float:
-    return float(np.sum(torques ** 2))
-
-def joint_acc_l2(joint_acc: np.ndarray) -> float:
-    return float(np.sum(joint_acc ** 2))
-
-def action_rate_l2(action: np.ndarray, prev_action: np.ndarray) -> float:
-    return float(np.sum((action - prev_action) ** 2))
-
 def joint_pos_limits(joint_pos: np.ndarray, lower: np.ndarray, upper: np.ndarray) -> float:
     out = -np.clip(joint_pos - lower, a_min=None, a_max=0.0)
     out += np.clip(joint_pos - upper, a_min=0.0, a_max=None)
     return float(np.sum(out))
 
-def undesired_contacts(contact_flags: np.ndarray) -> float:
-    return float(np.sum(contact_flags.astype(np.float32)))
 
-def bad_orientation(projected_gravity: np.ndarray, limit_angle: float) -> bool:
-    cos_tilt = -projected_gravity[2]
-    tilt_angle = np.arccos(np.clip(cos_tilt, -1.0, 1.0))
-    return bool(tilt_angle > limit_angle)
+def joint_penalty(leg_joint_pos: np.ndarray, default_leg_joint_pos: np.ndarray) -> float:
+    """Sum of squared deviation of leg joints from the default/home pose."""
+    return float(np.sum((leg_joint_pos - default_leg_joint_pos) ** 2))
 
 
-def quat_error_magnitude(q1: np.ndarray, q2: np.ndarray) -> float:
-    # q = [w, x, y, z]
-    dot = np.clip(np.abs(np.dot(q1, q2)), -1.0, 1.0)
-    return float(2 * np.arccos(dot))
-
-def performance_reward(root_quat: np.ndarray, target_quat=(1.0, 0.0, 0.0, 0.0), omega=1.0, scale=0.1) -> float:
-    angle = quat_error_magnitude(root_quat, np.array(target_quat))
-    r_theta = np.sin(angle) ** 2 / scale
-    return float(omega * np.exp(-r_theta))
-# ----------------------------------------------------------------------
-# Added reward terms:
-# is_alive, symmetry, stable_head, stable_joint,
-# legal foot contact, collision penalty, action smoothness, torque energy
-# ----------------------------------------------------------------------
-def is_alive(terminated: bool) -> float:
-    """Small constant bonus every step the episode is still running.
-    Encourages the policy to survive longer instead of collapsing early."""
-    return float(0.0 if terminated else 1.0)
-
-def gait_symmetry_reward(
-    left_joint_pos: np.ndarray,
-    right_joint_pos: np.ndarray,
-    mirror_sign: np.ndarray | None = None,
-) -> float:
-    """Penalize asymmetry between mirrored left/right joint angles during
-    a gait cycle. left_joint_pos and right_joint_pos must be same-length
-    arrays where index i on the left corresponds to the mirrored joint i
-    on the right (e.g. [hip, knee, ankle]).
-
-    mirror_sign: optional array of +1/-1 per joint, for joints whose sign
-    convention flips between left and right sides (e.g. hip abduction).
-    Defaults to all +1 (no sign flip).
-    """
-    if mirror_sign is None:
-        mirror_sign = np.ones_like(left_joint_pos)
-    diff = left_joint_pos - mirror_sign * right_joint_pos
-    err = np.sum(diff ** 2)
-    return float(np.exp(-err))
-
-def stable_head_reward(
-    head_joint_pos: np.ndarray,
-    head_joint_default: np.ndarray,
-    scale: float = 0.05,
-) -> float:
-    """Penalize head/neck joint(s) deviating from their neutral position,
-    so the head stays still instead of wobbling during locomotion."""
-    err = np.sum((head_joint_pos - head_joint_default) ** 2)
-    return float(np.exp(-err / scale))
-
-def stable_joint_reward(
-    joint_vel: np.ndarray,
-    scale: float = 1.0,
-) -> float:
-    """Penalize high joint velocities / jitter, encouraging smooth,
-    stable joint motion rather than shaky high-frequency movement."""
-    err = np.sum(joint_vel ** 2)
-    return float(np.exp(-err / scale))
-
-def legal_foot_contact_reward(
-    left_contact: bool,
-    right_contact: bool,
-    left_force: float,
-    right_force: float,
-    max_force: float = 50.0,
-) -> float:
-    """Reward feet making contact with the ground with reasonable force
-    (not zero force "phantom" contact, not excessive slamming force).
-    Returns 1.0 for each foot in legal contact, scaled down if force is
-    outside the acceptable range."""
-    def _leg_score(in_contact: bool, force: float) -> float:
-        if not in_contact:
-            return 0.0
-        if force <= 0.0:
-            return 0.0
-        return float(np.clip(1.0 - abs(force - max_force / 2) / (max_force / 2), 0.0, 1.0))
-
-    return 0.5 * (_leg_score(left_contact, left_force) + _leg_score(right_contact, right_force))
+def joint_vel_penalty(leg_joint_vel: np.ndarray) -> float:
+    return float(np.sum(leg_joint_vel ** 2))
 
 
-# def collision_penalty(contact_flags: np.ndarray) -> float:
-#     """Penalty for undesired body parts (torso, shins, elbows, etc.)
-#     touching the ground/obstacles. Same computation as undesired_contacts,
-#     named separately for clarity when used as its own reward term."""
-#     return float(np.sum(contact_flags.astype(np.float32)))
+def joint_acc_penalty(leg_joint_vel: np.ndarray, prev_leg_joint_vel: np.ndarray, dt_control: float) -> float:
+    acc = (leg_joint_vel - prev_leg_joint_vel) / dt_control
+    return float(np.sum(acc ** 2))
 
 
-def action_smoothness_penalty(action: np.ndarray, prev_action: np.ndarray) -> float:
-    """Penalize large jumps between consecutive actions, for smoother
-    control output. Equivalent to action_rate_l2, named separately for
-    reward-table clarity."""
-    return float(np.sum((action - prev_action) ** 2))
-
-
-def torque_energy_penalty(torques: np.ndarray, joint_vel: np.ndarray) -> float:
-    """Penalize mechanical power / energy usage (torque * velocity),
-    rather than just torque magnitude -- encourages energy-efficient gaits."""
-    power = np.abs(torques * joint_vel)
+def torque_penalty(actuator_force: np.ndarray, qvel_actuated: np.ndarray) -> float:
+    """Approximate mechanical power as |torque * joint_vel|, summed."""
+    power = np.abs(actuator_force * qvel_actuated)
     return float(np.sum(power))
 
+############################################################################
+def phase_vector(t: float, period: float) -> np.ndarray:
+    phase = np.fmod(t, period) / period
+    ang = 2 * np.pi * phase
+    return np.array([np.sin(ang), np.cos(ang)], dtype=np.float32)
+
+def quat_to_yaw(quat: np.ndarray) -> float:
+    w, x, y, z = quat
+    siny_cosp = 2 * (w * z + x * y)
+    cosy_cosp = 1 - 2 * (y * y + z * z)
+    return float(np.arctan2(siny_cosp, cosy_cosp))
+
+def _wrap_to_pi(a: float) -> float:
+    return float((a + np.pi) % (2 * np.pi) - np.pi)
+
+def bad_orientation(projected_gravity: np.ndarray, tilt_limit: float) -> bool:
+    """Terminate if the robot's projected gravity indicates excessive tilt."""
+    tilt = np.linalg.norm(projected_gravity[:2])
+    return bool(tilt > tilt_limit)
+#####################################################################################
+
+def ang_vel_xy_l2(ang_vel_b: np.ndarray) -> float:
+    return float(np.sum(ang_vel_b[:2] ** 2))
+
+def lin_vel_z_l2(local_lin_vel_z: float) -> float:
+    return float(local_lin_vel_z ** 2)
+
+def action_rate_l2(action: np.ndarray, prev_action: np.ndarray) -> float:
+    return float(np.sum((action - prev_action) ** 2))
+
+def action_smoothness2_l2(action: np.ndarray, prev_action: np.ndarray, prev_prev_action: np.ndarray) -> float:
+    """Second-order smoothness: penalizes acceleration in action space."""
+    return float(np.sum((action - 2 * prev_action + prev_prev_action) ** 2))
+
+def alive_cost() -> float:
+    return 1.0
 
 REWARD_WEIGHTS = {
-    "track_lin_vel_xy_exp": 6.0,  #1.5-->6.0
-    "track_ang_vel_z_exp": 0.75,
-    "gait_phase_contact": 0.5,  # WAS 0.3
-    "feet_air_time": 1.0,       # WAS 0.2
-    "flat_orientation_l2": -0.5,  # -1.0,#-2.0-->-0.5
-    "base_height_l2": -0.5,     # WAS -2.0 #-3.0-->-0.5
-    "joint_torques_l2": -2e-5,
-    "joint_acc_l2": -2.5e-7,
-    "action_rate_l2": -0.01,
-    "joint_pos_limits": -1.0,
-    "undesired_contacts": -1.0,
-    "is_terminated": -20.0,  #-100-->-20
+    # tracking
+    "track_lin_vel_xy_exp": 2.0,  #2.0
+    "track_ang_vel_z_exp": 0.5,  #0.8
+    "forward_progress": 8.0,   #3.0########--------------->need to be changed--->to-->8(20aug)-->8.0
 
-    # newly added terms
-    "is_alive": 0.05,
-    "gait_symmetry": 0.3,
-    "stable_head": 0.2,
-    "stable_joint": 0.1,
-    "legal_foot_contact": 0.3,
-    "collision_penalty": -1.0,
-    "action_smoothness": -0.01,
-    "torque_energy": -1e-4,
+    # heading / straight-line
+    "heading_drift": -1.0,    #-2.0
+<<<<<<< Updated upstream
+    "lateral_path_deviation": -4.0,    #-5.0 
+=======
+    "lateral_path_deviation": -2.0,    #-5.0 
+>>>>>>> Stashed changes
+    "yaw_penalty":-1.0,   #-2.0
+
+    # gait
+    "gait_phase_tracking": 1.0,  #0.8
+    "feet_air_time_reward": 2.0, #1.6
+<<<<<<< Updated upstream
+    "symmetry": -0.3,    #-0.9
+=======
+    "symmetry": -0.5,    #-0.9
+>>>>>>> Stashed changes
+
+    # base stability
+    "flat_orientation_l2": -2.5,  #-1.0-->-2.5(21aug[2])
+    "base_height_l2": -1.0,
+#################################active
+    "lin_vel_z_l2": -2.0,
+    "ang_vel_xy_l2": -0.05,
+##################################
+    "pelvis_vel_tracking": -1.0,   #-5.0
+    "lateral_spread": -3.0, #-15
+    "gait_phase_contact": 1.0,  #0.8
+    "joint_pos_limits": -1.0,
+    "joint_penalty": -0.001,   #-0.002
+    "joint_vel": -0.0005,      #-0.001
+    "joint_acc": -2.0e-7,  #7
+    "torque": -0.0001, #.0002
+    "action_rate_l2": -0.03,  #-0.05
+    "action_smoothness2_l2": -0.015,   #-0.025
+
+    # survival / termination
+    "alive_cost": 1.0,
+    "is_terminated": -25.0,
 }
+
+
+def compute_reward(e):
+    info = {}
+    total = 0.0
+
+    terms = {
+        "track_lin_vel_xy_exp": track_lin_vel_xy_exp(e.local_lin_vel[:2], e.commands[:2], std=0.06),
+        "track_ang_vel_z_exp": track_ang_vel_z_exp(e.local_ang_vel[2], e.commands[2], std=0.06),
+        
+        "heading_drift": heading_drift_penalty(e.base_yaw, e.spawn_yaw),
+        "lateral_path_deviation": lateral_path_deviation_penalty(e.base_pos[:2], e.spawn_xy, e.spawn_yaw),
+        "yaw_penalty": yaw_penalty(e.local_ang_vel[2], e.commands[2]),
+        
+        "gait_phase_tracking": gait_phase_tracking_reward(e.phase_left, e.phase_right,
+                                                            e.foot_contact[0], e.foot_contact[1]),
+        "feet_air_time_reward": feet_air_time_reward(e.foot_touchdown_event, e.foot_air_time,
+                                                       e.reward_cfg.target_feet_air_time, e.commands[:2]),
+        "symmetry": symmetry_penalty(e.leg_joint_pos, e.left_leg_pose_buffer, e.right_leg_pose_buffer),
+
+        "flat_orientation_l2": flat_orientation_l2(e.projected_gravity),
+        "base_height_l2": base_height_l2(e.base_pos[2], e.reward_cfg.target_base_height),
+        "lin_vel_z_l2": lin_vel_z_l2(e.local_lin_vel[2]),
+        "ang_vel_xy_l2": ang_vel_xy_l2(e.local_ang_vel),
+        "pelvis_vel_tracking": pelvis_vel_tracking_penalty(e.local_lin_vel[:2], e.commands[:2]),
+        "lateral_spread": lateral_spread_penalty(e.data.body("left_foot").xpos, e.data.body("right_foot").xpos),
+
+        "joint_pos_limits": joint_pos_limits(e.joint_pos, e.joint_lower, e.joint_upper),
+        "joint_penalty": joint_penalty(e.leg_joint_pos, e.default_leg_joint_pos),
+        "joint_vel": joint_vel_penalty(e.leg_joint_vel),
+        "joint_acc": joint_acc_penalty(e.leg_joint_vel, e.prev_leg_joint_vel, e.dt_control),
+        "torque": torque_penalty(e.last_actuator_force, e.qvel_actuated),
+        "action_rate_l2": action_rate_l2(e.action, e.prev_action),
+        "action_smoothness2_l2": action_smoothness2_l2(e.action, e.prev_action, e.prev_prev_action),
+
+        "alive_cost": alive_cost(),
+    }
+
+    for name, raw in terms.items():
+        weight = REWARD_WEIGHTS.get(name, 0.0)
+        weighted = weight * raw
+        info[f"rew/{name}"] = weighted
+        total += weighted
+
+
+    return total, info

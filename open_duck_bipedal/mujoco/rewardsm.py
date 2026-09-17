@@ -33,9 +33,15 @@ def lateral_path_deviation_penalty(base_pos_xy: np.ndarray, spawn_xy: np.ndarray
 #     commanded this punishes any yawing at all, so the robot walks straight
 #     instead of circling. Turning exactly as commanded costs nothing."""
 #     return float((yaw_rate - cmd_yaw) ** 2)
+<<<<<<< Updated upstream
+# def yaw_penalty(yaw_rate: float, cmd_yaw: float) -> float:
+#     err = (yaw_rate - cmd_yaw) ** 2
+#     return float(np.clip(err, 0.0, 5.0))
+
 def yaw_penalty(yaw_rate: float, cmd_yaw: float) -> float:
     err = (yaw_rate - cmd_yaw) ** 2
-    return float(np.clip(err, 0.0, 5.0))
+    return float(5.0 * np.tanh(err / 5.0))
+>>>>>>> Stashed changes
 
 def gait_phase_tracking_reward(phase_left: float, phase_right: float,
                                 left_contact: float, right_contact: float) -> float:
@@ -183,13 +189,21 @@ REWARD_WEIGHTS = {
 
     # heading / straight-line
     "heading_drift": -1.0,    #-2.0
+<<<<<<< Updated upstream
     "lateral_path_deviation": -4.0,    #-5.0 
+=======
+    "lateral_path_deviation": -2.0,    #-5.0 
+>>>>>>> Stashed changes
     "yaw_penalty":-1.0,   #-2.0
 
     # gait
     "gait_phase_tracking": 1.0,  #0.8
     "feet_air_time_reward": 2.0, #1.6
+<<<<<<< Updated upstream
     "symmetry": -0.3,    #-0.9
+=======
+    "symmetry": -0.5,    #-0.9
+>>>>>>> Stashed changes
 
     # base stability
     "flat_orientation_l2": -2.5,  #-1.0-->-2.5(21aug[2])

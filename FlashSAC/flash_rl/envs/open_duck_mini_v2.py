@@ -229,8 +229,8 @@ class OpenDuckBipedalEnv(gym.Env):
         base_height_rel = self.data.qpos[2] - feet_z
 
         terms = {
-            "track_lin_vel_xy_exp": R.track_lin_vel_xy_exp(lin_vel_b[:2], self.cmd[:2], std=0.5),
-            "track_ang_vel_z_exp": R.track_ang_vel_z_exp(ang_vel_b[2], self.cmd[2], std=0.5),
+            "track_lin_vel_xy_exp": R.track_lin_vel_xy_exp(lin_vel_b[:2], self.cmd[:2], std=0.25),
+            "track_ang_vel_z_exp": R.track_ang_vel_z_exp(ang_vel_b[2], self.cmd[2], std=0.25),
             "forward_progress": R.forward_progress(self.data.qpos[0:2], self.prev_base_pos_xy),
             "heading_drift": R.heading_drift_penalty(R.quat_to_yaw(self.data.qpos[3:7]), self.spawn_yaw),
             "lateral_path_deviation": R.lateral_path_deviation_penalty(self.data.qpos[0:2], self.spawn_xy, self.spawn_yaw),

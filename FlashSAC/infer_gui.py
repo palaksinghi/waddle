@@ -10,7 +10,7 @@ from omegaconf import OmegaConf
 from flash_rl.agents import create_agent
 from flash_rl.envs.open_duck_mini_v2 import OpenDuckBipedalEnv
 
-CHECKPOINT_PATH = "models/open_duck/open_duck_mini_v2/OpenDuckMiniV2-v0/seed0-0829-124551/step10000"
+CHECKPOINT_PATH = "models/open_duck/open_duck_mini_v2/OpenDuckMiniV2-v0/seed0-0926-190457/step71500"
 CONFIG_PATH = "./configs"
 CONFIG_NAME = "flashSAC_base"
 

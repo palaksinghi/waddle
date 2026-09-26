@@ -39,6 +39,9 @@ class WandbTrainerLogger:
         self.average_meter_dict = AverageMeterDict()
         self.media_dict.clear()
 
+    def close(self) -> None:
+        self._wandb.finish(exit_code=0)
+
 
 class TensorboardTrainerLogger:
     def __init__(self, cfg: Any):
@@ -92,6 +95,10 @@ class TensorboardTrainerLogger:
     def reset(self) -> None:
         self.average_meter_dict = AverageMeterDict()
         self.media_dict.clear()
+
+    def close(self) -> None:
+        self.writer.flush()  # type: ignore[no-untyped-call]
+        self.writer.close()  # type: ignore[no-untyped-call]
 
 
 class AverageMeter:

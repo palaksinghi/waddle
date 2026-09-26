@@ -202,6 +202,7 @@ def run(args: argparse.Namespace) -> None:
     train_env.close()
     eval_env.close()
     record_env.close()
+    logger.close()
 
 
 if __name__ == "__main__":

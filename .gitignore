@@ -83,3 +83,9 @@ htmlcov/
 # Ignore user-specific files
 *.user
 *.local
+
+# Embedded FlashSAC project - keep its configs tracked
+# (parent rules above would otherwise ignore env/ and .python-version inside it)
+!FlashSAC/configs/env/
+!FlashSAC/configs/env/*
+!FlashSAC/.python-version

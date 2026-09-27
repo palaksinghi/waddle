@@ -12,9 +12,9 @@ Robots don’t intuitively walk; they’re taught using a policy. Waddle teaches
 Open Duck Mini v2 features 17 Degrees of Freedom (DoF). To achieve stable, autonomous walking, we applied Proximal Policy Optimization (PPO) and Flash Soft Actor-Critic (FlashSAC). The walking gait is implemented using detailed RL reward engineering—combining, weighting, and fine-tuning distinct reward components to ensure proper balance and gait stability.
 
 
-<p align="center">
-  <img src="gif_collection/flash_sac.gif" alt="FlashSAC Open Duck Demo" width="100%"/>
-</p>
+| PPO | FlashSac |
+| :---: | :---: |
+| ![PPO](gif_collection/flash_sac.gif) |![lunar lander](gif_collection/FlashSac2.gif) |
 
 <!-- ## ALGORITHM
 

@@ -39,7 +39,7 @@ Waddle is a progression of five stages, each in its own folder:
 | 6 | `walker_2d/` | Walker2d (MuJoCo) | PPO | Balance and falling termination |
 | 7 | `humanoid/` | Humanoid (MuJoCo) | PPO | High-dimensional control |
 | 8 | `multi_humanoid/` | Multi-Humanoid | PPO | Multi-agent setup |
-| 9 | `FlashSAC/` | Open Duck Mini v2 (MuJoCo / Isaac Lab) | PPO, FlashSAC | Reward engineering, on- vs off-policy comparison |
+| 9 | `FlashSAC/` | Open Duck Mini v2 (MuJoCo / Isaac Lab) |  FlashSAC | Reward engineering, on- vs off-policy comparison |
 
 ### Classic control
 

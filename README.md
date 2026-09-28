@@ -84,17 +84,17 @@ Action (dim = 17):
 ```
 
 ### Reward engineering
-
-The gait is the result of a weighted sum of shaped terms, `r = Σ wᵢ · rᵢ(s, a)`, computed in `compute_reward(e)`  and shared by PPO and FlashSAC. The function returns the total reward plus an `info` dict that logs every weighted term as `rew/<name>`, so you can see which terms dominate during training.
-
+ 
+The gait is the result of a weighted sum of shaped terms, `r = Σ wᵢ · rᵢ(s, a)`, computed in `compute_reward(e)` and shared by PPO and FlashSAC. The function returns the total reward plus an `info` dict that logs every weighted term as `rew/<name>`, so you can see which terms dominate during training.
+ 
 Design choices worth knowing before you tune anything:
-
-- **Exponential tracking terms** (`exp(-err / σ²)`, σ = 0.06) give a bounded reward in [0, 1] that only pays out when the commanded velocity is tracked closely.
-- **Spawn-anchored straight-line terms.** `heading_drift` and `lateral_path_deviation` are measured against a fixed reference (`spawn_yaw`, `spawn_xy`) rather than recomputed each step. This is position-anchored, not velocity-anchored, which is what stops the robot from walking in arcs or circles.
-- **Bounded penalties.** `yaw_penalty` uses `5·tanh(err/5)` and `pelvis_vel_tracking` is clipped to [0, 5], so a single bad step cannot produce an exploding penalty.
-- **Half-cycle symmetry.** The gait is driven by a phase clock with the legs π apart. `symmetry` compares the current leg pose against the mirrored pose from half a gait cycle ago, over the 10 leg joints (5 per leg: yaw, roll, pitch, knee, ankle).
-- **Gated air-time reward.** `feet_air_time_reward` returns 0 when the commanded speed is below 0.05, so the robot is not paid to step while it should stand still.
-- **Iterative tuning.** Previous weight values are kept as inline comments in the reward file.
+ 
+- **Tracking rewards.** The duck gets a score between 0 and 1 for matching the speed it was told to walk at. The score is high only when it is very close to the target (roughly within 0.06 m/s) and drops quickly the further away it gets.
+- **Walking in a straight line.** Heading and sideways drift are measured against where the duck started (its spawn position and direction), not against the previous step. Small drifts can't add up unnoticed, so the duck can't slowly curve into a circle.
+- **Capped penalties.** Some penalties (`yaw_penalty`, `pelvis_vel_tracking`) have a maximum of 5. One bad step can't produce a huge penalty that throws off training.
+- **Left and right legs mirror each other.** Walking is two legs taking turns, half a step apart. `symmetry` checks that each leg's pose matches the mirrored pose of the other leg from half a step ago. It looks at the 10 leg joints (5 per leg: yaw, roll, pitch, knee, ankle).
+- **No stepping in place when standing still.** `feet_air_time_reward` pays nothing when the commanded speed is almost zero, so the duck isn't rewarded for stepping when it should stand still.
+- **Tuned by trial and error.** The weights changed many times along the way. The old values are kept as comments in the reward file.
 
 #### Reward terms (PPO and FlashSAC)
 

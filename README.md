@@ -11,36 +11,6 @@ Nobody tells a robot exactly how to walk. Instead, it tries things in a simulato
 <img src="FlashSAC/duck.png" alt="Open Duck Mini v2" width="60%">
 </p>
 
-## Overview
-
-Waddle is a progression of five stages, each in its own folder:
-
-- **Tabular RL** (`frozenlake/`, `taxi/`): value-based methods on small discrete environments, where you can inspect every Q-value.
-- **Deep Q-learning** (`lunar landing/dqn`, `lunar landing/ddqn`): neural function approximation, experience replay, and Double DQN to fix Q-value overestimation.
-- **Neural network fundamentals** (`neural network/`): the supporting deep learning building blocks used by the later stages.
-- **Continuous-control PPO** (`halfcheetah_ppo/`, `walker_2d/`, `humanoid/`, `multi_humanoid/`): policy-gradient training on MuJoCo locomotion tasks of increasing difficulty.
-- **Open Duck Mini v2** (`FlashSAC/,open_duck_bipedal`): It trains the 17-DoF duck with PPO and FlashSAC .
-### Workflow
-
-1. **Start with the environment.** Each stage defines its observation space, action space, reward, and termination conditions explicitly, so you can see exactly what the agent is optimizing.
-2. **Train an agent.** Discrete tasks use tabular Q-learning and DQN/DDQN; continuous tasks use PPO (and FlashSAC for the duck).
-3. **Shape the reward.** For the duck, the gait is engineered by combining, weighting, and tuning distinct reward components until the robot balances and walks stably (see [Reward engineering](#reward-engineering)).
-
-
-### Learning path
-
-| Stage | Folder | Environment | Algorithm | Concept introduced |
-|-------|--------|-------------|-----------|--------------------|
-| 1 | `frozenlake/` | FrozenLake | Tabular RL | Value functions, exploration |
-| 2 | `taxi/` | Taxi-v3 | Tabular RL | Larger discrete state spaces |
-| 3 | `lunar landing/dqn` | LunarLander | DQN | Function approximation, replay buffer |
-| 4 | `lunar landing/ddqn` | LunarLander | Double DQN | Overestimation bias |
-| 5 | `halfcheetah_ppo/` | HalfCheetah (MuJoCo) | PPO | Continuous actions, clipped surrogate objective |
-| 6 | `walker_2d/` | Walker2d (MuJoCo) | PPO | Balance and falling termination |
-| 7 | `humanoid/` | Humanoid (MuJoCo) | PPO | High-dimensional control |
-| 8 | `multi_humanoid/` | Multi-Humanoid | PPO | Multi-agent setup |
-| 9 | `FlashSAC/` | Open Duck Mini v2 (MuJoCo / Isaac Lab) |  FlashSAC | Reward engineering, on- vs off-policy comparison |
-
 ### Classic control
 
 <table>
@@ -96,69 +66,7 @@ Design choices worth knowing before you tune anything:
 - **No stepping in place when standing still.** `feet_air_time_reward` pays nothing when the commanded speed is almost zero, so the duck isn't rewarded for stepping when it should stand still.
 - **Tuned by trial and error.** The weights changed many times along the way. The old values are kept as comments in the reward file.
 
-#### Reward terms (PPO and FlashSAC)
 
-**Command tracking**
-
-| Term | Definition | Weight |
-|------|------------|--------|
-| `track_lin_vel_xy_exp` | `exp(-‖v_cmd,xy − v_xy‖² / σ²)`, σ = 0.06 | 2.0 |
-| `track_ang_vel_z_exp` | `exp(-(ω_cmd − ω_z)² / σ²)`, σ = 0.06 | 0.5 |
-| `forward_progress` | Net world +x displacement this step | 8.0 |
-| `pelvis_vel_tracking` | `‖v − v_cmd‖² / max(0.12, 0.5‖v_cmd‖²)`, clipped to [0, 5] | -1.0 |
-
-**Heading and straight-line walking**
-
-| Term | Definition | Weight |
-|------|------------|--------|
-| `heading_drift` | Squared wrapped yaw error vs. spawn heading | -1.0 |
-| `lateral_path_deviation` | Squared perpendicular distance from the line through spawn along spawn heading | -2.0 |
-| `yaw_penalty` | `5·tanh((ω_z − ω_cmd)² / 5)` | -1.0 |
-
-**Gait**
-
-| Term | Definition | Weight |
-|------|------------|--------|
-| `gait_phase_tracking` | Desired stance from `sin(phase)` per leg, matched against actual foot contact | 1.0 |
-| `gait_phase_contact` | Binary phase-vs-contact match using the phase vector | 1.0 |
-| `feet_air_time_reward` | On touchdown, `min(air_time, target_feet_air_time)`; zero if command < 0.05 | 2.0 |
-| `symmetry` | Squared error to the mirrored leg pose from half a cycle ago | -0.5 |
-| `lateral_spread` | Feet lateral distance beyond 0.25 m | -3.0 |
-
-**Base stability**
-
-| Term | Definition | Weight |
-|------|------------|--------|
-| `flat_orientation_l2` | `‖g_xy‖²` of projected gravity | -2.5 |
-| `base_height_l2` | `(h − h_target)²` | -1.0 |
-| `lin_vel_z_l2` | Vertical base velocity squared | -2.0 |
-| `ang_vel_xy_l2` | Roll/pitch angular velocity squared | -0.05 |
-
-**Regularization**
-
-| Term | Definition | Weight |
-|------|------------|--------|
-| `joint_pos_limits` | Amount by which joints exceed their limits | -1.0 |
-| `joint_penalty` | Squared deviation of leg joints from default pose | -0.001 |
-| `joint_vel` | Squared leg joint velocity | -0.0005 |
-| `joint_acc` | Squared leg joint acceleration | -2e-7 |
-| `torque` | Approximate mechanical power, abs(τ · q̇) summed | -0.0001 |
-| `action_rate_l2` | `‖aₜ − aₜ₋₁‖²` | -0.03 |
-| `action_smoothness2_l2` | `‖aₜ − 2aₜ₋₁ + aₜ₋₂‖²` (action acceleration) | -0.015 |
-
-**Survival and termination**
-
-| Term | Definition | Weight |
-|------|------------|--------|
-| `alive_cost` | Constant per-step bonus | 1.0 |
-| `is_terminated` | One-off penalty when the episode terminates | -25.0 |
-
-**Termination condition:** `bad_orientation` ends the episode when `‖g_xy‖ > sin(tilt_limit)`, where `tilt_limit` is in radians (projected gravity's horizontal norm equals `sin(tilt)`, so the comparison is made against the sine, not the raw angle). 
-#### Reward parity between PPO and FlashSAC
-
-FlashSAC is trained with the same reward terms and weights as PPO (the tables above apply to both). Keeping the reward identical is what makes the [PPO vs. FlashSAC](#ppo-vs-flashsac) comparison meaningful: the only intentional difference between the two runs is the learning algorithm.
-
-## Results
 
 ### Open Duck Mini v2
 
@@ -172,38 +80,6 @@ FlashSAC is trained with the same reward terms and weights as PPO (the tables ab
     <td align="center"><img src="gif_collection/waddle.gif" width="320"/></td>
   </tr>
 </table>
-
-### PPO vs. FlashSAC
-
-PPO and FlashSAC are trained on the same robot with the same reward, so any difference in the results comes from the algorithm and not from the task setup.
-x
-
-#### Algorithm comparison
-
-| Property | PPO | FlashSAC |
-|----------|-----|----------|
-| Family | Clipped-surrogate policy gradient | Soft actor-critic (maximum entropy, off-policy) |
-| Sample efficiency | Lower: needs large amounts of fresh data | Typically higher: reuses past transitions |
-| Exploration | Stochastic policy plus entropy bonus | Entropy is part of the objective |
-| Stability | Generally robust, few sensitive knobs | More components to tune (critics, temperature, replay) |
-
-
-#### Results
-
-| Metric | PPO | FlashSAC |
-|--------|-----|----------|
-| Environment steps to first stable walk | 500 | 100000 |
-| Wall-clock training time | 30 min | 15 min |
-<!-- | Final mean episode return | `TODO` | `TODO` |
-| Velocity tracking error (m/s) | `TODO` | `TODO` |
-| Heading drift over a straight walk (rad) | `TODO` | `TODO` |
-| Lateral path deviation (m) | `TODO` | `TODO` |
-| Max push survived (N, duration) | `TODO` | `TODO` |
-| Rough-terrain success rate | `TODO` | `TODO` | -->
-
-
-Return is comparable across the two runs only because the reward is identical.
-
 
 ## Repo layout
 

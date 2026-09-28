@@ -269,7 +269,7 @@ python train.py
 python "lunar landing/dqn/train.py"   
 python "lunar landing/ddqn/train.py"  
 
-# PPO on MuJoCo benchmarks
+
 python halfcheetah_ppo/train.py       
 
 # Open Duck Mini v2 

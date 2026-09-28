@@ -153,8 +153,7 @@ Design choices worth knowing before you tune anything:
 | `alive_cost` | Constant per-step bonus | 1.0 |
 | `is_terminated` | One-off penalty when the episode terminates | -25.0 |
 
-**Termination condition:** `bad_orientation` ends the episode when `‖g_xy‖ > sin(tilt_limit)`, where `tilt_limit` is in radians (projected gravity's horizontal norm equals `sin(tilt)`, so the comparison is made against the sine, not the raw angle). `TODO`: add any other termination conditions (height, timeout) and the `tilt_limit` value.
-
+**Termination condition:** `bad_orientation` ends the episode when `‖g_xy‖ > sin(tilt_limit)`, where `tilt_limit` is in radians (projected gravity's horizontal norm equals `sin(tilt)`, so the comparison is made against the sine, not the raw angle). 
 #### Reward parity between PPO and FlashSAC
 
 FlashSAC is trained with the same reward terms and weights as PPO (the tables above apply to both). Keeping the reward identical is what makes the [PPO vs. FlashSAC](#ppo-vs-flashsac) comparison meaningful: the only intentional difference between the two runs is the learning algorithm.
@@ -203,7 +202,7 @@ x
 | Rough-terrain success rate | `TODO` | `TODO` | -->
 
 
-Return is comparable across the two runs only because the reward is identical. Reported numbers should be averaged over multiple seeds (`TODO`: how many) with the spread shown, since single-seed RL results vary a lot.
+Return is comparable across the two runs only because the reward is identical.
 
 
 ## Repo layout
@@ -225,8 +224,6 @@ waddle/
 ```
 
 ## Getting started
-
-Tested with: Python 3.10, `TODO` (MuJoCo version), `TODO` (PyTorch version), `TODO` (Isaac Lab version and GPU).
 
 ### Clone
 
@@ -252,13 +249,13 @@ source waddle_env/bin/activate
 ### Install dependencies
 
 ```bash
-pip install -r requirements.txt   # TODO: add requirements.txt
+pip install -r requirements.txt  
 ```
 
 
 ## Running
 
-> Replace the commands below with your real entry points.
+
 
 ```bash
 # Tabular RL

@@ -1,0 +1,4 @@
+[submodule "FlashSAC"]
+	path = FlashSAC
+	url = https://github.com/palaksinghi/FlashSAC.git
+	branch = main
